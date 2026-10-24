@@ -78,7 +78,7 @@ describe("Subscription enforcement and LIFO retention", () => {
     const prices = await query(
       "select code,monthly_price from public.subscription_plans order by monthly_price",
     );
-    expect(prices.map((p) => p.monthly_price)).toEqual([0, 199900, 500000]);
+    expect(prices.map((p) => p.monthly_price)).toEqual([0, 199900, 499900]);
   });
   it("enforces customer quotas at the database and counts archived records", async () => {
     await limit(2);

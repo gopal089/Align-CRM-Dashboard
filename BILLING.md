@@ -2,7 +2,7 @@
 
 ## Approved monthly plans
 
-| Limit | Free | Starter ₹1,999 | Business ₹5,000 |
+| Limit | Free | Starter ₹1,999 | Business ₹4,999 |
 | --- | ---: | ---: | ---: |
 | Active members | 3 | 10 | 50 |
 | Contacts | 100 | 5,000 | 50,000 |
@@ -48,7 +48,16 @@ Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the server r
 
 An existing merchant account can have separate Align plans and a separate webhook. Do not regenerate keys used by another project. Sign in to the intended account and select Test Mode first.
 
-1. Create an Align Starter monthly plan for INR 199900 paise and an Align Business monthly plan for INR 500000 paise. Each interval is one month.
+Align test plans created on 2026-10-24 (these IDs are configuration identifiers, not secret keys):
+
+| Plan | Test Plan ID | Monthly price |
+| --- | --- | ---: |
+| Align CRM Starter | `plan_TripP3Eyzvptif` | ₹1,999 |
+| Align CRM Business | `plan_Triq9SQtqvjB6q` | ₹4,999 |
+
+Test/Live is selected for the merchant account's dashboard session; choosing Test Mode does not disable an existing project's live payments.
+
+1. Create an Align Starter monthly plan for INR 199900 paise and an Align Business monthly plan for INR 499900 paise. Each interval is one month.
 2. Create a webhook for `https://pojrnwxvudxgmdrgqfhg.supabase.co/functions/v1/crm-billing/webhook`. Enter its signing secret yourself. Select offered subscription events (`authenticated`, `activated`, `charged`, `pending`, `halted`, `cancelled`, `completed`, `updated`) and `invoice.paid` where available.
 3. Enter the matching test credentials, plan IDs, webhook secret, and approved test workspace IDs into Supabase secrets.
 4. In Settings → Plans & billing, use an approved test workspace to complete checkout and verify delivery in Razorpay's webhook log. Use Razorpay's test payment flow; no real charge is required.

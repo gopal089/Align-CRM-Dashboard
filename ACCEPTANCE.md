@@ -12,12 +12,12 @@ Updated 2026-10-24. The application uses Supabase **CRM** (`pojrnwxvudxgmdrgqfhg
 ## Subscription backend deployment
 
 - Subscription and billing-hardening migrations applied to the final CRM project, with migration history recorded. All 21 public application tables have RLS enabled; internal billing state also has RLS and no client policies.
-- Plan prices are INR paise: Free 0, Starter 199900, Business 500000.
+- Plan prices are INR paise: Free 0, Starter 199900, Business 499900 (user-approved revision to ₹4,999/month).
 - The crm-billing Edge Function is deployed with handler-level authentication. A live HTTP smoke check rejects anonymous configuration requests with HTTP 401. Earlier checks also rejected invalid JWTs/job credentials and unconfigured webhooks.
 - Privileged signed-in billing implementations live in the private schema; public API wrappers use caller permissions. Native catalog verification confirms zero privileged public implementations among those seven endpoints.
 - The align-subscription-maintenance Cron job is active every five minutes using a server-generated Vault credential. Cleanup refuses to run without configured Razorpay and fresh provider reconciliation.
 - Final-project transaction-only subscription checks passed: 500 temporary contacts remain viewable during retention; preserved edits/exports are rejected; expired excess and previews are hidden; cleanup keeps the oldest 100 and removes the newest 400. The entire fixture, including its passwordless test Auth row, was rolled back.
-- Razorpay keys, plan IDs, webhook secret, and approved test workspace IDs remain unconfigured. Checkout intentionally stays unavailable. No real or test charge has been made.
+- Align Starter ₹1,999 and Business ₹4,999 monthly plans have been created in Razorpay Test Mode; their IDs and test mode are configured in Supabase. The webhook is enabled with nine events. API credentials and the matching webhook secret still require secure entry and verification; checkout has not been tested and no charge has been made.
 - Platform revenue code exists, but no platform-owner identity was granted automatically. This requires a verified owner Auth UUID.
 
 ## Prior CRM verification
@@ -29,8 +29,8 @@ Updated 2026-10-24. The application uses Supabase **CRM** (`pojrnwxvudxgmdrgqfhg
 
 ## Remaining verification
 
-- Sign in to Razorpay Test Mode, create Align-specific plans/webhook, enter matching server secrets, and complete checkout plus webhook delivery tests. See BILLING.md.
-- Authenticated billing-screen desktop/mobile QA and real Razorpay renewal/cancellation/plan-change acceptance tests. No authenticated user session was available for these browser checks.
+- Finish matching server secrets, then complete test checkout and webhook delivery checks. See BILLING.md.
+- Authenticated desktop billing screen renders the existing workspace, usage, correct ₹1,999/₹4,999 plans, and setup notice. Mobile billing QA and provider lifecycle acceptance tests remain pending.
 - Final-project confirmation/recovery email round trips, custom SMTP, backup restoration, load testing, and operational alerting.
 - Exhaustive browser audit of every CRM control and actual printed PDF layout.
 
