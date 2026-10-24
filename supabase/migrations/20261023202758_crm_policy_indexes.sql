@@ -1,0 +1,5 @@
+create index if not exists memberships_user_id_idx on public.memberships(user_id);
+drop policy sections_write on public.pitch_sections;
+create policy sections_insert on public.pitch_sections for insert to authenticated with check (exists(select 1 from public.pitches p where p.id=pitch_id and p.org_id=pitch_sections.org_id and (p.owner_id=(select auth.uid()) or private.manage(p.org_id))));
+create policy sections_update on public.pitch_sections for update to authenticated using (exists(select 1 from public.pitches p where p.id=pitch_id and p.org_id=pitch_sections.org_id and (p.owner_id=(select auth.uid()) or private.manage(p.org_id)))) with check (exists(select 1 from public.pitches p where p.id=pitch_id and p.org_id=pitch_sections.org_id and (p.owner_id=(select auth.uid()) or private.manage(p.org_id))));
+create policy sections_delete on public.pitch_sections for delete to authenticated using (exists(select 1 from public.pitches p where p.id=pitch_id and p.org_id=pitch_sections.org_id and (p.owner_id=(select auth.uid()) or private.manage(p.org_id))));
