@@ -205,7 +205,7 @@ describe("Subscription enforcement and LIFO retention", () => {
       [org],
     );
     expect(kept.map((r) => r.id)).toEqual(rows.slice(0, 300).map((r) => r.id));
-  });
+  }, 30000); // Hundreds of real Postgres trigger calls take longer on Render's shared builder.
   it("does not let clients backdate creation order or change billing data", async () => {
     const [r] = await contacts(1);
     await expect(

@@ -14,6 +14,7 @@ Updated 2026-10-24. The application uses Supabase **CRM** (`pojrnwxvudxgmdrgqfhg
 - Subscription and billing-hardening migrations applied to the final CRM project, with migration history recorded. All 21 public application tables have RLS enabled; internal billing state also has RLS and no client policies.
 - Plan prices are INR paise: Free 0, Starter 199900, Business 500000.
 - The crm-billing Edge Function is deployed with handler-level authentication. A live HTTP smoke check rejects anonymous configuration requests with HTTP 401. Earlier checks also rejected invalid JWTs/job credentials and unconfigured webhooks.
+- Privileged signed-in billing implementations live in the private schema; public API wrappers use caller permissions. Native catalog verification confirms zero privileged public implementations among those seven endpoints.
 - The align-subscription-maintenance Cron job is active every five minutes using a server-generated Vault credential. Cleanup refuses to run without configured Razorpay and fresh provider reconciliation.
 - Final-project transaction-only subscription checks passed: 500 temporary contacts remain viewable during retention; preserved edits/exports are rejected; expired excess and previews are hidden; cleanup keeps the oldest 100 and removes the newest 400. The entire fixture, including its passwordless test Auth row, was rolled back.
 - Razorpay keys, plan IDs, webhook secret, and approved test workspace IDs remain unconfigured. Checkout intentionally stays unavailable. No real or test charge has been made.
