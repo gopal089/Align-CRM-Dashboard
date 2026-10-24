@@ -56,7 +56,7 @@ describe("PostgreSQL business rules and access controls (isolated test records)"
     const tables = await rows(
       "select relname,relrowsecurity from pg_class join pg_namespace n on n.oid=relnamespace where n.nspname='public' and relkind='r'",
     );
-    expect(tables.length).toBe(16);
+    expect(tables.length).toBe(21);
     expect(tables.every((t) => t.relrowsecurity)).toBe(true);
     await user(a);
   });

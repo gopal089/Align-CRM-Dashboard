@@ -8,6 +8,11 @@ import {
 } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  useRecordPermissions,
+  retentionMessage,
+  assertExportAllowed,
+} from "../lib/billing";
+import {
   ArrowLeft,
   ArrowUpRight,
   Plus,
@@ -106,6 +111,8 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
   const { id } = useParams();
   const { org, role, session, members } = useAuth();
   const { data: record, isLoading, error } = useRecord(entity, id);
+  const permissions = useRecordPermissions(entity.table, id ? [id] : []);
+  const preserved = !!(id && permissions.data?.[id]?.preserved);
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -181,6 +188,7 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
               ? "pitch_id"
               : "";
   async function update(payload: Record<string, any>) {
+    if (preserved) throw new Error(retentionMessage);
     const { error } = await supabase
       .from(entity.table)
       .update(payload)
@@ -317,7 +325,12 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
           )}
         </div>
         {canEdit && (
-          <button className="button" onClick={() => setEditing(true)}>
+          <button
+            className="button"
+            onClick={() =>
+              preserved ? toast.error(retentionMessage) : setEditing(true)
+            }
+          >
             <Pencil size={15} />
             Edit {entity.singular}
           </button>
@@ -347,6 +360,23 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
           ]}
         />
       </PageTitle>
+      {preserved && (
+        <div className="notice billing-warning">
+          <div>
+            <strong>Preserved record · view only</strong>
+            <p>
+              {retentionMessage} Scheduled deletion:{" "}
+              {permissions.data?.[id!]?.delete_at
+                ? new Date(permissions.data[id!].delete_at!).toLocaleString(
+                    undefined,
+                    { timeZone: org!.timezone },
+                  )
+                : "after the retention period"}
+              . <Link to="/settings?tab=billing">View your plan</Link>
+            </p>
+          </div>
+        </div>
+      )}
       {record.archived_at && (
         <div className="notice">
           <Archive size={17} />
@@ -386,12 +416,14 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
             Open deal
             <ArrowUpRight size={14} />
           </Link>
-          <Link
-            className="text-link"
-            to={`/contacts/${record.converted_contact_id}`}
-          >
-            Open contact
-          </Link>
+          {record.converted_contact_id && (
+            <Link
+              className="text-link"
+              to={`/contacts/${record.converted_contact_id}`}
+            >
+              Open contact
+            </Link>
+          )}
         </div>
       )}
       {isPitch && (
@@ -401,9 +433,14 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
           </button>
           <button
             className="button"
-            onClick={() => {
-              setPreview(true);
-              setTimeout(() => window.print(), 200);
+            onClick={async () => {
+              try {
+                await assertExportAllowed(org!.id);
+                setPreview(true);
+                setTimeout(() => window.print(), 200);
+              } catch (error) {
+                toast.error((error as Error).message);
+              }
             }}
           >
             <Printer size={15} />

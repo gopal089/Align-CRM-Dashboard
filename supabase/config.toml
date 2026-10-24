@@ -1,0 +1,3 @@
+[functions.crm-billing]
+# The handler verifies Supabase users, Razorpay signatures, or the private Cron token.
+verify_jwt = false

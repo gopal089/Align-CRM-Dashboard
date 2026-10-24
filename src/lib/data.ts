@@ -3,6 +3,7 @@ import { supabase } from "./client";
 import { useAuth } from "./auth";
 import type { Entity, Row } from "./model";
 import { cleanSearch, period, today, zonedBoundary } from "./utils";
+import { assertExportAllowed } from "./billing";
 export const pageSize = 12;
 export function listQuery(
   entity: Entity,
@@ -112,6 +113,7 @@ export async function exportRecords(
   zone = "Asia/Kolkata",
 ) {
   const rows: Row[] = [];
+  await assertExportAllowed(org, entity.table);
   let start = 0;
   while (true) {
     const { data, error } = await listQuery(

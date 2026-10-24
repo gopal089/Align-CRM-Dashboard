@@ -17,6 +17,8 @@ import type { Stage } from "../lib/auth";
 import { entities } from "../lib/model";
 import { exportRecords } from "../lib/data";
 import { PageTitle, Section, ErrorMessage } from "./ui";
+import Billing from "./Billing";
+import { assertExportAllowed } from "../lib/billing";
 export default function Settings() {
   const { org, profile, role, memberships, setOrgId, refresh } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -48,6 +50,7 @@ export default function Settings() {
     setBusy(true);
     setError("");
     try {
+      await assertExportAllowed(org!.id);
       const exportData: Record<string, any> = {
         exported_at: new Date().toISOString(),
         organization: org,
@@ -119,6 +122,7 @@ export default function Settings() {
             ["sources", "Lead sources"],
             ["integrations", "Integrations & payments"],
             ["data", "Data & export"],
+            ["billing", "Plans & billing"],
           ].map(([key, label]) => (
             <button
               key={key}
@@ -141,7 +145,9 @@ export default function Settings() {
           </Link>
         </nav>
         <div className="settings-main">
-          {tab === "workspace" ? (
+          {tab === "billing" ? (
+            <Billing />
+          ) : tab === "workspace" ? (
             <Section
               title="Workspace profile"
               description="Your company details, currency, and time zone."

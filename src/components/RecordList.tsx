@@ -43,6 +43,7 @@ import {
 import { supabase } from "../lib/client";
 import { Badge, Empty, ErrorMessage, Loading, Modal, PageTitle } from "./ui";
 import RecordForm from "./RecordForm";
+import { useRecordPermissions } from "../lib/billing";
 export function RelationLink({ table, id }: { table: string; id: string }) {
   const { org } = useAuth();
   const result = useQuery({
@@ -118,6 +119,9 @@ export function Cell({ column, row }: { column: string; row: Row }) {
   return (
     <span className={column === "name" ? "record-name" : "cell-text"}>
       {String(value)}
+      {column === "name" && row.__preserved && (
+        <small className="billing-preserved">Preserved · view only</small>
+      )}
     </span>
   );
 }
@@ -367,7 +371,14 @@ export default function RecordList({ entity }: { entity: Entity }) {
   const [saving, setSaving] = useState(false);
   const page = Math.max(1, Number(params.get("page")) || 1);
   const count = records.data?.count || 0;
-  const rows = records.data?.rows || [];
+  const permissions = useRecordPermissions(
+    entity.table,
+    (records.data?.rows || []).map((r) => r.id),
+  );
+  const rows = (records.data?.rows || []).map((r) => ({
+    ...r,
+    __preserved: permissions.data?.[r.id]?.preserved,
+  }));
   const board = entity.key === "deals" && params.get("view") !== "table";
   const showForm = params.get("new") === "1";
   useEffect(() => setSelected(new Set()), [params.toString(), entity.key]);

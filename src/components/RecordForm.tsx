@@ -60,7 +60,9 @@ export function RelationField({
   });
   const list =
     table === "memberships"
-      ? members.map((m) => ({ id: m.user_id, name: m.profiles.name }))
+      ? members
+          .filter((m) => m.active || m.user_id === value)
+          .map((m) => ({ id: m.user_id, name: m.profiles.name }))
       : options.data || [];
   const merged =
     chosen.data && !list.some((x) => x.id === chosen.data!.id)

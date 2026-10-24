@@ -26,6 +26,7 @@ import { nav, entities } from "../lib/model";
 import { cleanSearch, date, initials } from "../lib/utils";
 import { Logo, Modal, Menu, Empty, ErrorMessage } from "./ui";
 import { useSummary } from "../lib/data";
+import { BillingNotice } from "./Billing";
 export default function Shell() {
   const { org, role, profile, session } = useAuth();
   const location = useLocation();
@@ -300,6 +301,7 @@ export default function Shell() {
           </div>
         </header>
         <main className="page-content" key={org?.id}>
+          <BillingNotice />
           <Outlet />
         </main>
         <footer className="app-footer">

@@ -6,6 +6,8 @@ import { useSummary } from "../lib/data";
 import { csv, date, money, percent, period } from "../lib/utils";
 import { PageTitle, Section, ErrorMessage, Loading, Empty } from "./ui";
 import { DateRange, Chart, Pipeline } from "./Dashboard";
+import { assertExportAllowed } from "../lib/billing";
+import { toast } from "sonner";
 function AnalyticsTable({
   rows,
   columns,
@@ -19,6 +21,7 @@ function AnalyticsTable({
   }[];
   filename: string;
 }) {
+  const { org } = useAuth();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState(columns[0].key);
   const [asc, setAsc] = useState(true);
@@ -51,13 +54,18 @@ function AnalyticsTable({
         </div>
         <button
           className="button small"
-          onClick={() =>
-            csv(
-              filtered,
-              columns.map((c) => c.key),
-              `${filename}.csv`,
-            )
-          }
+          onClick={async () => {
+            try {
+              await assertExportAllowed(org!.id);
+              csv(
+                filtered,
+                columns.map((c) => c.key),
+                `${filename}.csv`,
+              );
+            } catch (error) {
+              toast.error((error as Error).message);
+            }
+          }}
         >
           <Download size={14} />
           CSV
@@ -193,7 +201,17 @@ export default function Reports() {
         description="Understand what’s working, and where to focus next."
       >
         <DateRange />
-        <button className="button" onClick={() => window.print()}>
+        <button
+          className="button"
+          onClick={async () => {
+            try {
+              await assertExportAllowed(org!.id);
+              window.print();
+            } catch (error) {
+              toast.error((error as Error).message);
+            }
+          }}
+        >
           <Printer size={15} />
           Print report
         </button>

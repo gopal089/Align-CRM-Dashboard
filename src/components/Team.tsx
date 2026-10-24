@@ -44,7 +44,7 @@ export default function Team() {
       </PageTitle>
       <Section
         title="Workspace members"
-        description={`${members.length} ${members.length === 1 ? "person" : "people"} in ${org!.name}`}
+        description={`${members.filter((m) => m.active).length} active members in ${org!.name}. Inactive accounts keep their history and do not use a seat.`}
       >
         <div className="table-wrap">
           <table>
@@ -74,6 +74,7 @@ export default function Team() {
                           <strong>
                             {m.profiles.name}
                             {m.user_id === session!.user.id ? " (you)" : ""}
+                            {!m.active ? " · Inactive" : ""}
                           </strong>
                           <small>{m.profiles.email}</small>
                         </span>
@@ -98,6 +99,42 @@ export default function Team() {
                       )}
                     </td>
                     <td>
+                      {admin && (
+                        <button
+                          className="button small"
+                          disabled={busy}
+                          onClick={async () => {
+                            if (
+                              !m.active ||
+                              window.confirm(
+                                `Deactivate ${m.profiles.name}? They will lose workspace access. Their records and login account will be kept.`,
+                              )
+                            ) {
+                              setBusy(true);
+                              const { error } = await supabase.rpc(
+                                "set_member_active",
+                                {
+                                  o: org!.id,
+                                  member_id: m.id,
+                                  enabled: !m.active,
+                                },
+                              );
+                              setBusy(false);
+                              if (error) toast.error(error.message);
+                              else {
+                                await refresh();
+                                toast.success(
+                                  m.active
+                                    ? "Member deactivated"
+                                    : "Member activated",
+                                );
+                              }
+                            }
+                          }}
+                        >
+                          {m.active ? "Deactivate" : "Activate"}
+                        </button>
+                      )}
                       {admin && (
                         <button
                           className="button small"

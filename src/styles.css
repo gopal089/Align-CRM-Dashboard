@@ -3907,3 +3907,93 @@ tr.selected-row {
     padding-right: 45px;
   }
 }
+/* Subscription usage, renewal warnings and the customer retention window. */
+.billing-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+.billing-notice > div {
+  flex: 1;
+  min-width: 220px;
+}
+.billing-notice p {
+  margin: 4px 0 0;
+}
+.billing-warning {
+  border-color: #d6a865;
+  background: #fffaf0;
+}
+.billing-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+.billing-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.billing-usage > span {
+  color: #656174;
+  font-size: 12px;
+}
+.billing-usage > strong {
+  font-size: 19px;
+}
+.billing-usage small {
+  font-size: 12px;
+  color: #686477;
+  font-weight: 400;
+}
+.billing-usage progress {
+  width: 100%;
+  height: 6px;
+  accent-color: #5b50c9;
+}
+.billing-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.billing-plan-grid .section {
+  min-width: 0;
+}
+.billing-feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 22px;
+}
+.billing-feature-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eeedf3;
+  font-size: 12px;
+}
+.billing-feature-list strong {
+  font-weight: 500;
+}
+.billing-preserved {
+  font-size: 11px;
+  color: #94621a;
+  display: block;
+  margin-top: 4px;
+}
+@media (max-width: 1050px) {
+  .billing-plan-grid {
+    grid-template-columns: 1fr;
+  }
+  .billing-usage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .billing-usage-grid {
+    grid-template-columns: 1fr;
+  }
+}

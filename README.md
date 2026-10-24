@@ -57,7 +57,7 @@ Without a configured backend, the app shows a setup screen. It does not fall bac
 
 ## Database and security design
 
-The migrations create 16 tables with organization identifiers, composite relationship constraints, timestamps, indexes, decimal monetary columns, validation triggers, and row-level security (RLS) on every application table. Browser queries use the signed-in user's access token. Database policies enforce organization membership and roles; changing a URL or `org_id` cannot grant access to another organization.
+The migrations create 21 application tables with organization identifiers, composite relationship constraints, timestamps, indexes, decimal monetary columns, validation triggers, and row-level security (RLS). Browser queries use the signed-in user's access token. Database policies enforce organization membership and roles; changing a URL or `org_id` cannot grant access to another organization. Subscription quotas, exact expiry, and retained customer records are enforced in Postgres. See BILLING.md for Razorpay setup, the approved limits, and deployment checks.
 
 Sensitive bootstrap and membership lookups live in the **non-exposed `private` schema** with a fixed search path, explicit grants, and checks of the authenticated user. Public RPCs use `SECURITY INVOKER`. Keep `private` out of Supabase's exposed schemas. Public functions are not executable by anonymous callers. A workspace must retain at least one administrator.
 

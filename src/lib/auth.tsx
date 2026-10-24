@@ -23,6 +23,7 @@ export type Member = {
   org_id: string;
   user_id: string;
   role: string;
+  active: boolean;
   profiles: { name: string; email: string };
 };
 type Ctx = {
@@ -77,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from("memberships")
         .select("*,organizations(*)")
         .eq("user_id", session!.user.id)
+        .eq("active", true)
         .order("created_at");
       if (error) throw error;
       return data;
