@@ -4,23 +4,19 @@ A React + TypeScript CRM built for persistent Supabase records. The interface us
 
 ## Start locally
 
-The app is connected to **CRM** in **gopal089's Org**:
-
-- Dashboard: https://supabase.com/dashboard/project/pojrnwxvudxgmdrgqfhg
-- API: https://pojrnwxvudxgmdrgqfhg.supabase.co
-- All migrations in `database/supabase/migrations/` are already applied, in filename order.
-- Auth site URL is `http://127.0.0.1:5173`. Sign-in and password recovery redirects are configured.
-- `frontend/.env.local` already contains the project URL and public publishable key. Do not overwrite it with the empty example.
-
 ```bash
-cd /Users/gopalsarma/CRM-Dashboard
-npm install --cache /private/tmp/crm-npm-cache
+git clone <repository-url>
+cd Align-CRM-Dashboard
+npm install
+cp frontend/.env.example frontend/.env.local
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Create your account, confirm your email, and create a workspace. The first member becomes its administrator. Other people sign up, then the administrator adds their registered email from Team. **This does not send an invitation email.** People who belong to multiple workspaces can switch in Settings.
+Before running `npm run dev`, add your Supabase project URL and public publishable key to `frontend/.env.local`. Apply every migration in `database/supabase/migrations/` to a new empty database, then configure the Auth site URL and the `/dashboard` and `/update-password` redirect URLs for your own origin.
 
-For a separate installation, copy `frontend/.env.example` to `frontend/.env.local`, enter that project's URL and **public publishable key**, and apply every migration in `database/supabase/migrations/` to a new empty database. Configure the site URL and the `/dashboard` and `/update-password` redirect URLs for your origin. Never put a service-role key in a `VITE_` variable: Vite exposes those values to the browser. Keep signup email confirmation enabled and configure SMTP for reliable email delivery.
+Open `http://127.0.0.1:5173`. Create your account, confirm your email, and create a workspace. The first member becomes its administrator. Other people sign up, then the administrator adds their registered email from Team. **This does not send an invitation email.** People who belong to multiple workspaces can switch in Settings.
+
+Never put a service-role key or another server secret in a `VITE_` variable because Vite sends those values to the browser. Keep signup email confirmation enabled and configure SMTP for reliable email delivery.
 
 Without a configured backend, the app shows a setup screen. It does not fall back to browser arrays, generated business records, or pretend successful saves.
 
@@ -52,7 +48,7 @@ The root `package.json` and `package-lock.json` are shared tooling files. Keepin
 ## Important behavior and definitions
 
 - **No business seed data is loaded.** Empty datasets display zero and useful onboarding actions.
-- An **open pipeline** is potential value. **Closed-won value** is the value of won deals. **Collected payments** are separate manually recorded payments; no money is collected by this app.
+- An **open pipeline** is potential value. **Closed-won value** is the value of won deals. Customer payment records are manually recorded and remain separate from Align subscription payments processed through Razorpay.
 - The organization has one currency. Currency changes are blocked after any deal, pitch, target, or payment exists, preventing silent currency mixing.
 - Reporting date ranges are inclusive calendar dates in the workspace's time zone, translated to an exclusive UTC end boundary.
 - Leads, contacts, and pitches are measured by creation time; won/lost values use the recorded close time. Lead-to-won attribution follows explicit `deals.lead_id` for leads created in the selected cohort, with wins before period end.
@@ -83,7 +79,7 @@ Lead conversion, pitch/section save, and accepted-pitch deal creation execute tr
 | Customer proposal email delivery                | Unconfigured; record external sends manually                    |
 | Customer view tracking                          | Unconfigured; no fabricated Viewed status                       |
 | Calendar sync                                   | Unconfigured; log meetings manually                             |
-| Payment provider                                | Unconfigured; optional manual payment records only              |
+| Subscription payment provider                   | Razorpay integration implemented; live activation is separate   |
 | Email / push task reminders                     | Unconfigured; in-app due-task reminders provided                |
 
 ## Verification

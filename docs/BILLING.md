@@ -28,7 +28,7 @@ Application export controls are enforced before fetching an export. A module exp
 
 1. Apply all SQL files in `database/supabase/migrations` in filename order. Never replace an already-applied migration. Use `npx supabase --workdir database ...` for database CLI commands.
 2. Deploy `backend/supabase/functions/crm-billing/index.ts` and `core.ts` as `crm-billing`. Use `npx supabase --workdir backend ...` for Edge Function CLI commands. Disable the legacy gateway JWT check, as specified in `backend/supabase/config.toml`: the handler validates user JWTs with Auth, active administrator membership, webhook HMAC signatures, or the private maintenance credential itself. Anonymous billing actions are rejected.
-3. Run `database/supabase/setup-billing-cron.sql` once as database owner. It stores a randomly generated maintenance credential in Supabase Vault and schedules the worker. The URL in this file is specific to the CRM project `pojrnwxvudxgmdrgqfhg`.
+3. Store the deployed billing function URL in Supabase Vault under `align_billing_function_url`, then run `database/supabase/setup-billing-cron.sql` once as database owner. The script stores a randomly generated maintenance credential in Vault and schedules the worker without committing a project-specific URL.
 4. Enter the following secrets directly into Supabase Edge Functions → Secrets. Never commit them, put them in Vite variables, or paste them into chat.
 
 | Secret | Value |
@@ -48,17 +48,17 @@ Supabase provides `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the server r
 
 An existing merchant account can have separate Align plans and a separate webhook. Do not regenerate keys used by another project. Sign in to the intended account and select Test Mode first.
 
-Align test plans created on 2026-10-24 (these IDs are configuration identifiers, not secret keys):
+Create separate Razorpay plans for this application and keep their provider IDs in Supabase Edge Function secrets rather than in source control:
 
-| Plan | Test Plan ID | Monthly price |
-| --- | --- | ---: |
-| Align CRM Starter | `plan_TripP3Eyzvptif` | ₹1,999 |
-| Align CRM Business | `plan_Triq9SQtqvjB6q` | ₹4,999 |
+| Plan | Monthly price |
+| --- | ---: |
+| Align CRM Starter | ₹1,999 |
+| Align CRM Business | ₹4,999 |
 
 Test/Live is selected for the merchant account's dashboard session; choosing Test Mode does not disable an existing project's live payments.
 
 1. Create an Align Starter monthly plan for INR 199900 paise and an Align Business monthly plan for INR 499900 paise. Each interval is one month.
-2. Create a webhook for `https://pojrnwxvudxgmdrgqfhg.supabase.co/functions/v1/crm-billing/webhook`. Enter its signing secret yourself. Select offered subscription events (`authenticated`, `activated`, `charged`, `pending`, `halted`, `cancelled`, `completed`, `updated`) and `invoice.paid` where available.
+2. Create a webhook for `https://<project-ref>.supabase.co/functions/v1/crm-billing/webhook`. Replace `<project-ref>` with your own Supabase project reference. Enter its signing secret yourself. Select offered subscription events (`authenticated`, `activated`, `charged`, `pending`, `halted`, `cancelled`, `completed`, `updated`) and `invoice.paid` where available.
 3. Enter the matching test credentials, plan IDs, webhook secret, and approved test workspace IDs into Supabase secrets.
 4. In Settings → Plans & billing, use an approved test workspace to complete checkout and verify delivery in Razorpay's webhook log. Use Razorpay's test payment flow; no real charge is required.
 5. Verify renewal, cancellation, next-cycle plan changes, duplicate/delayed webhooks, failed renewal, expiry, retained edit/export blocking, upgrade restoration, and newest-first cleanup in a dedicated test workspace. Time-boundary tests also run locally against isolated Postgres fixtures.
