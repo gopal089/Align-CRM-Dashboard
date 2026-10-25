@@ -136,7 +136,7 @@ export default function AuthScreen() {
               <ol className="setup-steps">
                 <li>Create a Supabase project.</li>
                 <li>
-                  Apply the migration in <code>supabase/migrations</code>.
+                  Apply the migration in <code>database/supabase/migrations</code>.
                 </li>
                 <li>
                   Copy <code>.env.example</code> to <code>.env.local</code> and

@@ -24,10 +24,12 @@ beforeAll(async () => {
   await db.exec(
     `create role anon nologin;create role authenticated nologin;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values('${a}','a@test.invalid'),('${b}','b@test.invalid'),('${c}','c@test.invalid'),('${outsider}','outsider@test.invalid');`,
   );
-  for (const migration of readdirSync("supabase/migrations")
+  for (const migration of readdirSync("database/supabase/migrations")
     .filter((n) => n.endsWith(".sql"))
     .sort()) {
-    await db.exec(readFileSync(`supabase/migrations/${migration}`, "utf8"));
+    await db.exec(
+      readFileSync(`database/supabase/migrations/${migration}`, "utf8"),
+    );
   }
   await user(a);
   org = (

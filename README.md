@@ -8,9 +8,9 @@ The app is connected to **CRM** in **gopal089's Org**:
 
 - Dashboard: https://supabase.com/dashboard/project/pojrnwxvudxgmdrgqfhg
 - API: https://pojrnwxvudxgmdrgqfhg.supabase.co
-- Both migrations in `supabase/migrations/` are already applied, in filename order.
+- All migrations in `database/supabase/migrations/` are already applied, in filename order.
 - Auth site URL is `http://127.0.0.1:5173`. Sign-in and password recovery redirects are configured.
-- `.env.local` already contains the project URL and public publishable key. Do not overwrite it with the empty example.
+- `frontend/.env.local` already contains the project URL and public publishable key. Do not overwrite it with the empty example.
 
 ```bash
 cd /Users/gopalsarma/CRM-Dashboard
@@ -20,9 +20,20 @@ npm run dev
 
 Open http://127.0.0.1:5173. Create your account, confirm your email, and create a workspace. The first member becomes its administrator. Other people sign up, then the administrator adds their registered email from Team. **This does not send an invitation email.** People who belong to multiple workspaces can switch in Settings.
 
-For a separate installation, copy `.env.example` to `.env.local`, enter that project's URL and **public publishable key**, and apply both migrations to a new empty database. Configure the site URL and the `/dashboard` and `/update-password` redirect URLs for your origin. Never put a service-role key in a `VITE_` variable: Vite exposes those values to the browser. Keep signup email confirmation enabled and configure SMTP for reliable email delivery.
+For a separate installation, copy `frontend/.env.example` to `frontend/.env.local`, enter that project's URL and **public publishable key**, and apply every migration in `database/supabase/migrations/` to a new empty database. Configure the site URL and the `/dashboard` and `/update-password` redirect URLs for your origin. Never put a service-role key in a `VITE_` variable: Vite exposes those values to the browser. Keep signup email confirmation enabled and configure SMTP for reliable email delivery.
 
 Without a configured backend, the app shows a setup screen. It does not fall back to browser arrays, generated business records, or pretend successful saves.
+
+## Project structure
+
+| Folder | Purpose |
+| --- | --- |
+| `frontend/` | React screens, browser-side Supabase client, styles, public assets, Vite configuration, and frontend tests |
+| `backend/` | Supabase Edge Functions and backend tests for Razorpay signature and receipt handling |
+| `database/` | PostgreSQL migrations, Supabase database configuration, maintenance Cron setup, and database tests |
+| `docs/` | Billing and verification documentation |
+
+The root `package.json` and `package-lock.json` are shared tooling files. Keeping them at the root lets one `npm install` support all three areas. Run the normal `npm` commands from the repository root.
 
 ## What is implemented
 
@@ -57,7 +68,7 @@ Without a configured backend, the app shows a setup screen. It does not fall bac
 
 ## Database and security design
 
-The migrations create 21 application tables with organization identifiers, composite relationship constraints, timestamps, indexes, decimal monetary columns, validation triggers, and row-level security (RLS). Browser queries use the signed-in user's access token. Database policies enforce organization membership and roles; changing a URL or `org_id` cannot grant access to another organization. Subscription quotas, exact expiry, and retained customer records are enforced in Postgres. See BILLING.md for Razorpay setup, the approved limits, and deployment checks.
+The migrations create 21 application tables with organization identifiers, composite relationship constraints, timestamps, indexes, decimal monetary columns, validation triggers, and row-level security (RLS). Browser queries use the signed-in user's access token. Database policies enforce organization membership and roles; changing a URL or `org_id` cannot grant access to another organization. Subscription quotas, exact expiry, and retained customer records are enforced in Postgres. See `docs/BILLING.md` for Razorpay setup, the approved limits, and deployment checks.
 
 Sensitive bootstrap and membership lookups live in the **non-exposed `private` schema** with a fixed search path, explicit grants, and checks of the authenticated user. Public RPCs use `SECURITY INVOKER`. Keep `private` out of Supabase's exposed schemas. Public functions are not executable by anonymous callers. A workspace must retain at least one administrator.
 
@@ -84,10 +95,10 @@ npm run build
 
 The tests use **PGlite, a real PostgreSQL engine**, in an isolated in-memory database with a test-only Auth schema and database roles. They test SQL/RLS rules and calculations. They do not prove hosted Supabase Auth, PostgREST, email delivery, production configuration, or browser acceptance.
 
-`tests/database.test.ts` covers organization isolation, representative permissions, nonmember membership attacks, duplicate/email validation, transactional/idempotent conversion, weighted versus won versus collected value, stage history, invalid updates, foreign-key isolation, atomic pitch/section saves, view-tracking rejection, accepted pitch conversion, payment enablement, report periods, archive behavior, last administrator protection, and anonymous access. `tests/utils.test.ts` covers currency, time-zone/daylight-saving boundaries, inclusive date ranges, and search input sanitization.
+`database/tests/database.test.ts` covers organization isolation, representative permissions, nonmember membership attacks, duplicate/email validation, transactional/idempotent conversion, weighted versus won versus collected value, stage history, invalid updates, foreign-key isolation, atomic pitch/section saves, view-tracking rejection, accepted pitch conversion, payment enablement, report periods, archive behavior, last administrator protection, and anonymous access. `frontend/tests/utils.test.ts` covers currency, time-zone/daylight-saving boundaries, inclusive date ranges, and search input sanitization.
 
-See `ACCEPTANCE.md` for the exact current verification state. Do not treat a passing frontend build or local SQL tests as proof of production readiness.
+See `docs/ACCEPTANCE.md` for the exact current verification state. Do not treat a passing frontend build or local SQL tests as proof of production readiness.
 
 ## Deployment
 
-`npm run build` writes the static application to `dist`. Serve it over HTTPS with SPA fallback to `index.html`, set the two public environment values at build time, and configure the deployed Auth redirect URLs. The database migration must be installed first. Before production rollout, complete the remaining checks in ACCEPTANCE.md, configure account email delivery, set production Auth URLs, and choose your backup/recovery policy.
+`npm run build` writes the generated static application to the repository-level `dist` directory so the existing Render publish setting keeps working. The source files remain inside `frontend/`. Serve the build over HTTPS with SPA fallback to `index.html`, set the two public environment values at build time, and configure the deployed Auth redirect URLs. The database migrations must be installed first. Before production rollout, complete the remaining checks in `docs/ACCEPTANCE.md`, configure account email delivery, set production Auth URLs, and choose your backup/recovery policy.

@@ -29,7 +29,7 @@ Updated 2026-10-24. The application uses Supabase **CRM** (`pojrnwxvudxgmdrgqfhg
 
 ## Remaining verification
 
-- Finish matching server secrets, then complete test checkout and webhook delivery checks. See BILLING.md.
+- Finish matching server secrets, then complete test checkout and webhook delivery checks. See `BILLING.md` in this folder.
 - Authenticated desktop billing screen renders the existing workspace, usage, correct ₹1,999/₹4,999 plans, and setup notice. Mobile billing QA and provider lifecycle acceptance tests remain pending.
 - Final-project confirmation/recovery email round trips, custom SMTP, backup restoration, load testing, and operational alerting.
 - Exhaustive browser audit of every CRM control and actual printed PDF layout.

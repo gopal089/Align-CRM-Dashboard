@@ -46,10 +46,10 @@ beforeAll(async () => {
   await db.exec(
     `create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`,
   );
-  for (const file of readdirSync("supabase/migrations")
+  for (const file of readdirSync("database/supabase/migrations")
     .filter((f) => f.endsWith(".sql"))
     .sort())
-    await db.exec(readFileSync(`supabase/migrations/${file}`, "utf8"));
+    await db.exec(readFileSync(`database/supabase/migrations/${file}`, "utf8"));
 }, 30000);
 beforeEach(async () => {
   await db.exec("reset role");

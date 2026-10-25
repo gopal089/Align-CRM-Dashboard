@@ -1,0 +1,3 @@
+# Database-only Supabase workspace.
+# Run database CLI commands from the repository root with:
+# npx supabase --workdir database <command>

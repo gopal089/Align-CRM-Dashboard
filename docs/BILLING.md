@@ -26,9 +26,9 @@ Application export controls are enforced before fetching an export. A module exp
 
 ## Server deployment
 
-1. Apply all SQL files in `supabase/migrations` in filename order. Never replace an already-applied migration.
-2. Deploy `supabase/functions/crm-billing/index.ts` and `core.ts` as `crm-billing`. Disable the legacy gateway JWT check, as specified in `supabase/config.toml`: the handler validates user JWTs with Auth, active administrator membership, webhook HMAC signatures, or the private maintenance credential itself. Anonymous billing actions are rejected.
-3. Run `supabase/setup-billing-cron.sql` once as database owner. It stores a randomly generated maintenance credential in Supabase Vault and schedules the worker. The URL in this file is specific to the CRM project `pojrnwxvudxgmdrgqfhg`.
+1. Apply all SQL files in `database/supabase/migrations` in filename order. Never replace an already-applied migration. Use `npx supabase --workdir database ...` for database CLI commands.
+2. Deploy `backend/supabase/functions/crm-billing/index.ts` and `core.ts` as `crm-billing`. Use `npx supabase --workdir backend ...` for Edge Function CLI commands. Disable the legacy gateway JWT check, as specified in `backend/supabase/config.toml`: the handler validates user JWTs with Auth, active administrator membership, webhook HMAC signatures, or the private maintenance credential itself. Anonymous billing actions are rejected.
+3. Run `database/supabase/setup-billing-cron.sql` once as database owner. It stores a randomly generated maintenance credential in Supabase Vault and schedules the worker. The URL in this file is specific to the CRM project `pojrnwxvudxgmdrgqfhg`.
 4. Enter the following secrets directly into Supabase Edge Functions → Secrets. Never commit them, put them in Vite variables, or paste them into chat.
 
 | Secret | Value |
@@ -74,4 +74,4 @@ Workspace administrators see their own usage and receipts. Global subscription r
 
 ## Verification
 
-Run `npm test` for isolated Postgres/RLS/quota/retention tests and Razorpay signature/receipt checks, `npm run build` for TypeScript and production assets, and `deno check supabase/functions/crm-billing/index.ts` for the server handler. Local tests do not prove real Razorpay webhook delivery or payment success. Until test credentials and webhook setup are complete, the billing page deliberately disables checkout and reports setup as incomplete.
+Run `npm test` for isolated Postgres/RLS/quota/retention tests and Razorpay signature/receipt checks, `npm run build` for TypeScript and production assets, and `deno check backend/supabase/functions/crm-billing/index.ts` for the server handler. Local tests do not prove real Razorpay webhook delivery or payment success. Until test credentials and webhook setup are complete, the billing page deliberately disables checkout and reports setup as incomplete.
