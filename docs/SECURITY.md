@@ -1,63 +1,60 @@
 # Account security
 
-Feature 1 extends the existing Supabase email/password login. It adds authenticator setup and a second-step screen, one-time backup codes, and **Settings → Security & sessions**. Signup, email confirmation, workspace onboarding and password recovery remain in the existing Auth screen. No new package, email provider, calendar service or paid geolocation service is required.
+Feature 1 extends the existing Supabase email/password login with authenticator setup, a second-step screen, one-time backup codes and **Settings → Security & sessions**. Signup, email confirmation, workspace onboarding and password recovery stay in the existing Auth screen.
 
-## What is enforced
+## Current staging profile: password hook NOT enabled
 
-- Supabase Auth owns TOTP secrets and verifies six-digit codes. Align stores the factor ID and ten user-bound SHA-256 backup-code hashes, never the plaintext backup codes. Each backup code has 128 bits of cryptographic randomness. Backup-code consumption and the session grant happen in one locked database transaction.
-- Enabling requires a valid TOTP. Turning off or replacing backup codes requires the current password plus a current TOTP or unused backup code. Turning off also revokes the user's other Align sessions. Replacing codes invalidates the previous set.
-- The server verifies the access token with Supabase Auth, reads its session ID, and checks ownership against the native session. A client cannot choose another user or manufacture an MFA grant. Direct calls to native Auth to remove a factor do not clear Align's separate enabled state.
-- A restrictive policy protects every current public application table. Security-definer workspace/member/billing paths are also guarded. The billing Edge Function checks the caller's session before using its service-role client; its separately authenticated webhook and scheduled maintenance paths remain unchanged.
-- Sessions expire 30 minutes after the last recorded user activity. Activity writes are throttled to once per minute, so the deadline may be up to a minute earlier than the last interaction. Background status polling and token refresh do not extend access. Expired/revoked sessions cannot re-register; the user must sign in again.
-- Revocation denies further **Align database and billing access immediately**. Open screens check every 15 seconds and clear their cached data on expiration/revocation. The local expiry timer also works without a network connection. These controls do not erase information already downloaded or revoke every native Auth capability of an existing JWT. Current-session logout additionally calls native local signout.
-- The session page lists registered Align sessions that still have a valid native Auth session. Multiple tabs in the same browser share a session. Device/User-Agent and IP come from Supabase's session record; missing fields are shown honestly. Geographic location is unavailable; IP is not proof of physical location. Sessions predating this release register when the updated app loads.
-- Align limits login preflight checks per normalized email and security-code operations per user to 10 per 15-minute window. Counters are committed independently of a failed verification. Native password sign-in remains directly between the browser and Supabase, preserving its device/IP recording. The required `private.security_password_attempt` password-verification hook also limits direct native logins: after ten failed passwords for an existing account within 15 minutes, further attempts return HTTP 429 until the window expires. A successful login before lockout resets that account's failure count. During lockout even a correct password is rejected; existing verified sessions remain active. The hook is executable only by `supabase_auth_admin`, and its counters are protected by RLS. Unknown email addresses have no Auth user ID and do not invoke this account hook; retain provider/gateway protections and the additional Align email preflight. Local testing found that the CLI's generated sign-in rate setting alone did not throttle direct password logins, so the hook must be configured explicitly.
+The Password Verification Attempt hook is optional and is **not enabled** for this staging profile. `database/supabase/config.toml` sets `auth.hook.password_verification_attempt.enabled = false`. Hosted Auth must also leave the hook disabled; local configuration is not automatically applied to hosted Auth.
 
-Supabase references: [TOTP](https://supabase.com/docs/guides/auth/auth-mfa/totp), [Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits), [session behavior](https://supabase.com/docs/guides/auth/sessions).
+Migration `20261028185041_native_login_rate_limit.sql` remains in migration history and may be applied after the account-security migration. It creates the private optional function, grants narrowly scoped access to Supabase Auth, and creates its counter policy. It does not enable a hosted hook, register a trigger, schedule a job, or modify existing user records. When unused, the function is dormant and supplies no login lockout. Do not edit an already-applied migration to remove it.
+
+**Remaining security gap:** direct password guessing against Supabase is not locked out by Align. An attacker can skip Align's `login_check` preflight and call `/auth/v1/token?grant_type=password` directly. Align's ten-check limit does not count those requests. Supabase's own hosted endpoint protections still apply, but they are separate from an account-specific failed-password lockout. The local Docker result must not be treated as proof of hosted rate-limit settings.
+
+This gap matters most for users without 2FA: a correctly guessed password can grant their account access. For accounts with 2FA enabled, a password alone still cannot pass Align's second-step/session checks. **Recommend that administrators enable 2FA**, and encourage every user to do the same. This is a recommendation, not an automatically enforced administrator policy.
+
+## What is enforced without the hook
+
+- Supabase Auth owns TOTP secrets and verifies six-digit codes. Align stores the factor ID and ten user-bound SHA-256 backup-code hashes, never plaintext backup codes. Each code has 128 bits of cryptographic randomness. Consumption and the session grant happen in one locked transaction.
+- Enabling requires a valid TOTP. Turning off 2FA or replacing backup codes requires the current password plus a current TOTP or unused backup code. Turning off also revokes the user's other Align sessions. Replacing codes invalidates the previous set.
+- The backend verifies the access token with Supabase Auth and checks its session ID against the native session. The user cannot choose another identity or manufacture a verification grant. Removing a native factor directly does not clear Align's separate enabled state.
+- Restrictive policies guard all current public application tables. Workspace/member/billing paths are also guarded. The billing function checks session validity before using its service-role client; separately authenticated webhooks and maintenance retain their existing checks.
+- Sessions expire 30 minutes after last recorded activity. Activity writes are throttled to once per minute, so the deadline may be up to a minute earlier than the last interaction. Status polling and token refresh do not extend it. Expired/revoked sessions cannot re-register; the user must sign in again.
+- Revocation denies further Align database and billing access immediately. Open screens check every 15 seconds and clear cached data on expiration/revocation. A local expiry timer also works offline. These controls cannot erase already downloaded information or revoke every native Auth capability of an existing JWT. Current-session logout additionally calls native local signout.
+- The session page lists registered Align sessions backed by valid native sessions. Tabs in the same browser share a session. Device/User-Agent and IP come from Supabase; missing values and geographic location are shown as unavailable.
+- Align limits login preflight checks per normalized email, and code/security-setup operations per user, to ten per 15-minute window. These counters are independent of the disabled optional hook. A code limiter still protects Align's verification endpoints; direct native MFA calls are subject to Supabase's own controls.
 
 ## Configuration and coordinated release
 
-This feature is not activated by frontend files alone. Test it on a staging/local Supabase project before enabling production enforcement.
+Follow [the staging deployment plan](STAGING_DEPLOYMENT.md), then [the staging test checklist](STAGING_SECURITY_CHECKLIST.md). Hosted changes require approval of the exact staging project reference before each mutation. Never operate on production as part of this staging workflow.
 
-1. Keep `frontend/.env.local` configured with the public project URL and publishable key. No service-role key belongs in a `VITE_` variable.
-2. Use `backend/.env.example` as the local server configuration reference. Hosted Supabase automatically supplies `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`. Set `SECURITY_ALLOWED_ORIGINS` to the exact deployed HTTPS origin and any allowed development origin, comma-separated with no trailing slash. Keep these values in Edge Function secrets/local ignored environment files.
-3. Confirm TOTP enrollment/verification is enabled in Supabase Auth. Enable the **Password Verification Attempt** Auth hook with `pg-functions://postgres/private/security_password_attempt`. Local database configuration includes this hook; the hosted Auth setting must be enabled separately before release. Apply the `20261028185041_native_login_rate_limit.sql` migration first. Inspect Authentication → Rate Limits. The feature assumes email/password accounts. If enabling Auth CAPTCHA later, wire its challenge into both sign-in and the backend password recheck first.
-4. In staging, apply `database/supabase/migrations/20261028181425_account_security.sql` and `database/supabase/migrations/20261028185041_native_login_rate_limit.sql` after the existing migrations. Deploy `account-security` and the updated `crm-billing` function from `backend`, using the existing `verify_jwt = false` configurations because both handlers perform their own authorization.
-5. Deploy the matching frontend and run the checklist below against that project. **Production needs a coordinated maintenance release**: pause user access while applying the migration and deploying both functions and the frontend. The migration deliberately denies unregistered sessions, so old frontend bundles cannot keep working with it. Tell users to reload. Do not push only the frontend to an auto-deploy branch before the backend is ready.
-6. Check login without MFA, onboarding, recovery, an existing workspace and billing before reopening access. Keep the prior build and a database backup. Do not drop enforcement policies to “fix” a deployment after users enable MFA; roll forward with the matching backend/frontend instead.
+1. Use only staging public URL/key values for the frontend. Never put a service-role key in a `VITE_` variable.
+2. Set `SECURITY_ALLOWED_ORIGINS` and `BILLING_ALLOWED_ORIGINS` to exact staging origins, comma-separated with no trailing slash. Hosted Supabase supplies `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions. See `backend/.env.example`; no new secret is needed for TOTP or backup codes.
+3. In Auth, confirm **TOTP enrollment and verification are enabled**, set the staging **Site URL**, and allow staging `/dashboard` and `/update-password` redirect URLs. Keep Password Verification Attempt disabled. Inspect provider rate-limit settings separately. Leave Razorpay variables unset for this security-only staging profile.
+4. Apply migrations in order, deploy `account-security`, then updated `crm-billing`, then the matching frontend. Both handlers use `verify_jwt = false` in backend configuration and perform their own authorization. Keep staging closed during the transition: old frontend bundles cannot register sessions under the new database rules.
+5. Reload test browsers and complete baseline login, onboarding, recovery, permissions and billing-authorization checks before inviting testers.
 
-Example CLI commands, from the repository root, after signing in and selecting a **staging** project:
+CAPTCHA is not implemented in this release. Do not turn on hosted CAPTCHA before the frontend Auth requests and the backend password-recheck flow support it; doing so can break login, signup, recovery and 2FA removal/code replacement.
 
-```sh
-npx supabase --workdir database link --project-ref YOUR_STAGING_PROJECT_REF
-npx supabase --workdir database db push
-npx supabase --workdir backend functions deploy account-security --project-ref YOUR_STAGING_PROJECT_REF
-npx supabase --workdir backend functions deploy crm-billing --project-ref YOUR_STAGING_PROJECT_REF
-npm test
-npm run build
-```
+## Optional hook — only for Teams/Enterprise
 
-Review CLI help and the target before running deployment commands. Configure secrets through the dashboard or an ignored environment file; never paste keys into GitHub or chat.
+These instructions are future opt-in instructions, **not steps in the current staging deployment**. Supabase currently reserves Password Verification Attempt hooks for Teams/Enterprise. Recheck the official plan entitlement before future use.
 
-## Manual acceptance checklist
+1. Keep both security migrations applied; confirm `private.security_password_attempt(jsonb)` exists.
+2. In the intended project's Dashboard, open **Authentication → Hooks → Add hook → Password Verification Attempt hook**.
+3. Select **Postgres**, schema **private**, function **security_password_attempt**. Enable the hook and choose **Create hook** (or **Update hook** when editing).
+4. The URI is `pg-functions://postgres/private/security_password_attempt`; no HTTP hook secret is required. Do not expose `private` through the Data API.
+5. Only for that future opt-in profile, enable the local hook too and add separate end-to-end acceptance tests for the account lockout. The optional function blocks attempts after ten failed passwords for an existing account in a 15-minute window; even a correct password is rejected during that lockout, while existing sessions are preserved.
 
-Use disposable test accounts and two different browsers/private-browser sessions. Never enroll a real customer's authenticator for testing.
+Applying the function migration alone never proves that this hook is active.
 
-1. **Baseline:** sign up, confirm email, sign in and create a workspace. Sign out/in with MFA still off. Exercise password reset, ordinary record CRUD and billing configuration.
-2. **Setup:** open Security & sessions, scan the QR using an authenticator, enter an incorrect code (must fail), then a valid code. Save the ten backup codes. Reload: codes must not be shown again.
-3. **Login gate:** sign in in the second browser. No workspace data should load before a correct code. Refresh and navigate directly to a record URL: the challenge must remain. Incorrect codes must never grant data access.
-4. **Backup codes:** use one to sign in. Sign out and try the same code again: it must fail. Use another code successfully. Generate replacement codes with password + code and verify old unused codes now fail.
-5. **Disable:** wrong password + correct code and correct password + wrong code must both fail. With both correct, disable succeeds; the second browser loses CRM access. Re-enable and verify the new QR/codes work.
-6. **Sessions:** verify device/IP/last-active display. Revoke the other session: its next data request must be denied and its UI must return to login within the next 15-second check. “Log out all other sessions” retains the current one. “Log out this session” returns to login. A separate user must be unaffected.
-7. **Idle:** leave the app untouched for 30 minutes, including background tabs. It must clear the screen and require fresh login. Background token refresh must not keep it alive. Repeat offline, then reconnect. In staging only, a database operator can move that test session's `last_active` back 31 minutes to accelerate the server-side case; never shorten production deadlines for a test.
-8. **Limits:** make 11 invalid code attempts within 15 minutes: the additional Align limiter must return HTTP 429. Use a disposable email to check the login preflight limit. Bypass the preflight and call native Auth directly for an existing disposable account: after ten failed passwords the next attempt must return 429. Confirm that a correct password is also rejected during lockout, then simulate a 16-minute-old counter in staging and confirm a correct password succeeds again. Keep other verified sessions active.
-9. **Direct API:** with the second browser's pre-MFA token, try reads, owner-only updates, workspace creation and billing requests. All must be denied or return no records. After session revocation, re-registration must fail even if the JWT has not expired.
-10. **Recovery:** test the existing reset link with MFA off, then with MFA on and a working authenticator. Password recovery does not bypass MFA. A backup code grants Align access, not native AAL2; Supabase may require the authenticator for native password/account changes. Someone missing both password and authenticator needs operator-assisted identity-verified recovery, not an automatic reset of the MFA latch.
+## Verification boundaries
 
-## Automated checks and limits of verification
+`npm test` runs business, endpoint/client and isolated PostgreSQL tests. The SQL test labelled **"optional function only; does not prove the hook is enabled"** invokes the function directly under a test Auth role. It is retained as optional capability coverage; its passing result does not claim the staging hook is enabled. Other security and application tests remain required.
 
-`npm test` runs the existing business-rule tests and new PostgreSQL, endpoint and client tests. They cover ownership, pre-MFA data denial, protected definer paths, one-time backup-code use, replacement, revocation, idle expiry, rate counters, wrong password/code and provider failure paths. PostgreSQL tests use isolated PGlite records. Endpoint tests mock Auth; they do not prove hosted TOTP delivery or project settings.
+Four hook-dependent expectations are removed from the active staging checklist: direct native ten-failure lockout, rejection of a correct password during that lockout, expiration of that native-hook lockout, and preservation of existing sessions during that lockout. General session controls and Align preflight/code-counter expiry tests stay required.
 
-Run Deno's type checker for both functions in addition to the frontend production build. A full end-to-end Auth test requires running local Supabase/Docker or a properly configured staging project. Do not mark the hosted feature verified solely from these tests.
+Earlier Docker end-to-end evidence with the hook enabled describes that earlier profile. The hook-disabled profile needs its own runtime acceptance evidence. Unit tests, configuration inspection and a production build alone do not establish hosted behavior. Run Deno type checks when backend code changes.
 
-No operator recovery screen, geographic IP lookup, or additional roadmap feature is included. Keep backup codes safely: a CRM workspace administrator cannot automatically reset another user's security state. The installation operator must verify identity independently before any exceptional recovery and revoke existing sessions as part of it.
+No geographic lookup, operator recovery screen, automatic administrator-MFA enforcement or CAPTCHA integration is included. A workspace administrator cannot automatically reset another user's MFA state. Password reset does not bypass 2FA. A backup code grants Align access, not native AAL2; native password/account changes may still require the authenticator. Exceptional recovery requires independent identity verification by the installation operator.
+
+References: [Supabase Auth Hooks](https://supabase.com/docs/guides/auth/auth-hooks), [TOTP](https://supabase.com/docs/guides/auth/auth-mfa/totp), [rate limits](https://supabase.com/docs/guides/auth/rate-limits), [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).

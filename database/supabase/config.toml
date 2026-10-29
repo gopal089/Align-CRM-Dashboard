@@ -2,7 +2,8 @@
 # Run database CLI commands from the repository root with:
 # npx supabase --workdir database <command>
 
-# Required for direct password-login rate limits; enable the same hook in hosted Auth before release.
+# Optional direct password-login limits (hosted Teams/Enterprise only).
+# Disabled locally to match the current staging profile. Hosted Auth must also leave it disabled.
 [auth.hook.password_verification_attempt]
-enabled = true
+enabled = false
 uri = "pg-functions://postgres/private/security_password_attempt"

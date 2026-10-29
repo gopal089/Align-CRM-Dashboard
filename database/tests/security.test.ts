@@ -258,7 +258,7 @@ describe("Account security enforced by PostgreSQL", () => {
       (await query("select public.security_rate_limit($1,10) ok", [b]))[0].ok,
     ).toBe(true);
   });
-  it("enforces the Auth-only password hook, including direct-login lockout and reset", async () => {
+  it("optional function only; does not prove the hook is enabled", async () => {
     await asUser();
     await expect(
       query("select private.security_password_attempt($1)", [
