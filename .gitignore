@@ -10,3 +10,5 @@ work/
 coverage/
 
 *.tsbuildinfo
+
+.DS_Store
