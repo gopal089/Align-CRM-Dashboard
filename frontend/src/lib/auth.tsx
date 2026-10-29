@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { security, SecurityError } from "./security";
+import type { SecurityState } from "./security";
 import type { ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +30,8 @@ export type Member = {
 };
 type Ctx = {
   session: Session | null;
+  securityState: SecurityState | null;
+  checkSecurity: () => Promise<void>;
   loading: boolean;
   error: string;
   org: Org | null;
@@ -43,6 +47,10 @@ type Ctx = {
 const AuthContext = createContext<Ctx>(null!);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [securityState, setSecurityState] = useState<SecurityState | null>(
+    null,
+  );
+  const [securityLoading, setSecurityLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [orgId, setOrgId] = useState(localStorage.getItem("align-org") || "");
@@ -64,15 +72,134 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
       if (event === "SIGNED_OUT") {
+        setRecovery(false);
+        setError("");
+        setSecurityState(null);
         cache.clear();
         setOrgId("");
       }
     });
     return () => data.subscription.unsubscribe();
   }, [cache]);
+  const sessionKey = session?.access_token
+    ? JSON.parse(
+        atob(
+          session.access_token
+            .split(".")[1]
+            .replace(/-/g, "+")
+            .replace(/_/g, "/"),
+        ),
+      ).session_id
+    : "";
+  const checkSecurity = async () => {
+    const state = await security<SecurityState>("register");
+    setSecurityState(state);
+    await cache.invalidateQueries();
+  };
+  useEffect(() => {
+    setSecurityState(null);
+    if (!sessionKey) {
+      setSecurityLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setSecurityLoading(true);
+    security<SecurityState>("register")
+      .then((state) => {
+        if (!cancelled) setSecurityState(state);
+      })
+      .catch((e) => {
+        if (!cancelled && !(e instanceof SecurityError && e.status === 401))
+          setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setSecurityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionKey]);
+  useEffect(() => {
+    const expire = () => {
+      cache.clear();
+      setSession(null);
+      setSecurityLoading(false);
+      setSecurityState(null);
+      setError("");
+      void supabase.auth.signOut({ scope: "local" });
+    };
+    window.addEventListener("align-session-expired", expire);
+    return () => window.removeEventListener("align-session-expired", expire);
+  }, [cache]);
+  useEffect(() => {
+    if (!sessionKey || !securityState) return;
+    let cancelled = false;
+    let lastSent = 0,
+      pending = false;
+    const activity = async (event: Event) => {
+      if (
+        !event.isTrusted ||
+        securityState.needs_code ||
+        pending ||
+        Date.now() - lastSent < 60_000
+      )
+        return;
+      pending = true;
+      lastSent = Date.now();
+      try {
+        const result = await security<{ expires_at: string }>("touch");
+        setSecurityState((state) =>
+          !cancelled && state && state.session_id === sessionKey
+            ? { ...state, expires_at: result.expires_at }
+            : state,
+        );
+      } catch {
+        /* Server checks still deny expired sessions. */
+      } finally {
+        pending = false;
+      }
+    };
+    // Polling checks revocation; it never extends the idle deadline.
+    const poll = setInterval(() => {
+      void security<SecurityState>("status")
+        .then((state) => {
+          if (cancelled) return;
+          if (state.needs_code) cache.clear();
+          setSecurityState(state);
+        })
+        .catch(() => {});
+    }, 15_000);
+    for (const name of ["pointerdown", "keydown", "scroll"])
+      window.addEventListener(name, activity, { passive: true });
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      for (const name of ["pointerdown", "keydown", "scroll"])
+        window.removeEventListener(name, activity);
+    };
+  }, [sessionKey, securityState?.needs_code, cache]);
+  useEffect(() => {
+    if (!securityState) return;
+    const deadline = new Date(securityState.expires_at).getTime();
+    const expire = () =>
+      window.dispatchEvent(new Event("align-session-expired"));
+    const check = () => {
+      if (Date.now() >= deadline) expire();
+    };
+    const timer = setTimeout(expire, Math.max(0, deadline - Date.now()));
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, [securityState?.expires_at]);
+  const securityReady =
+    !!securityState &&
+    !securityState.needs_code &&
+    securityState.session_id === sessionKey;
   const workspace = useQuery({
     queryKey: ["workspace", session?.user.id],
-    enabled: !!session,
+    enabled: !!session && securityReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("memberships")
@@ -91,7 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     null;
   const memberQuery = useQuery({
     queryKey: ["members", org?.id],
-    enabled: !!org,
+    enabled: !!org && securityReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("memberships")
@@ -104,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const profileQuery = useQuery({
     queryKey: ["profile", session?.user.id],
-    enabled: !!session,
+    enabled: !!session && securityReady,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
@@ -122,7 +249,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session,
-        loading: loading || workspace.isLoading,
+        securityState,
+        checkSecurity,
+        loading:
+          loading ||
+          securityLoading ||
+          (!!session &&
+            (!securityState || securityState.session_id !== sessionKey) &&
+            !error) ||
+          (securityReady && workspace.isLoading),
         error:
           error ||
           (workspace.error as Error)?.message ||

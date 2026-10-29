@@ -1,3 +1,7 @@
 [functions.crm-billing]
 # The handler verifies Supabase users, Razorpay signatures, or the private Cron token.
 verify_jwt = false
+
+[functions.account-security]
+# Public password login; all other actions verify the user and native session.
+verify_jwt = false

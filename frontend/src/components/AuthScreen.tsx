@@ -1,3 +1,4 @@
+import { security } from "../lib/security";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -59,6 +60,7 @@ export default function AuthScreen() {
           "If this email has an account, a password reset link has been requested.",
         );
       } else {
+        await security("login_check", { email });
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -136,7 +138,8 @@ export default function AuthScreen() {
               <ol className="setup-steps">
                 <li>Create a Supabase project.</li>
                 <li>
-                  Apply the migration in <code>database/supabase/migrations</code>.
+                  Apply the migration in{" "}
+                  <code>database/supabase/migrations</code>.
                 </li>
                 <li>
                   Copy <code>.env.example</code> to <code>.env.local</code> and

@@ -66,7 +66,7 @@ The root `package.json` and `package-lock.json` are shared tooling files. Keepin
 
 The migrations create 21 application tables with organization identifiers, composite relationship constraints, timestamps, indexes, decimal monetary columns, validation triggers, and row-level security (RLS). Browser queries use the signed-in user's access token. Database policies enforce organization membership and roles; changing a URL or `org_id` cannot grant access to another organization. Subscription quotas, exact expiry, and retained customer records are enforced in Postgres. See `docs/BILLING.md` for Razorpay setup, the approved limits, and deployment checks.
 
-Sensitive bootstrap and membership lookups live in the **non-exposed `private` schema** with a fixed search path, explicit grants, and checks of the authenticated user. Public RPCs use `SECURITY INVOKER`. Keep `private` out of Supabase's exposed schemas. Public functions are not executable by anonymous callers. A workspace must retain at least one administrator.
+Sensitive bootstrap and membership lookups live in the **non-exposed `private` schema** with a fixed search path, explicit grants, and checks of the authenticated user. User-facing CRM RPCs use `SECURITY INVOKER`. The account-security service RPCs use `SECURITY DEFINER` with a fixed search path and execution restricted to `service_role`; they are called only by the authenticated Edge Function. Keep `private` out of Supabase's exposed schemas. Public functions are not executable by anonymous callers. A workspace must retain at least one administrator.
 
 Lead conversion, pitch/section save, and accepted-pitch deal creation execute transactionally on the database. Audit histories cannot be directly modified by ordinary clients. Composite foreign keys prevent cross-organization associations, even when the client knows another record's UUID.
 
@@ -98,3 +98,7 @@ See `docs/ACCEPTANCE.md` for the exact current verification state. Do not treat 
 ## Deployment
 
 `npm run build` writes the generated static application to the repository-level `dist` directory so the existing Render publish setting keeps working. The source files remain inside `frontend/`. Serve the build over HTTPS with SPA fallback to `index.html`, set the two public environment values at build time, and configure the deployed Auth redirect URLs. The database migrations must be installed first. Before production rollout, complete the remaining checks in `docs/ACCEPTANCE.md`, configure account email delivery, set production Auth URLs, and choose your backup/recovery policy.
+
+## Account security
+
+Authenticator 2FA, one-time backup codes and session controls are documented in [the security setup and test guide](docs/SECURITY.md). This release requires a coordinated database, Edge Function and frontend deployment; follow that guide before activating it.

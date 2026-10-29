@@ -3997,3 +3997,19 @@ tr.selected-row {
     grid-template-columns: 1fr;
   }
 }
+
+.security-form {
+  display: grid;
+  gap: 14px;
+  max-width: 540px;
+  margin: 18px 0;
+}
+.security-form img { background: white; max-width: 100%; }
+.security-form code { overflow-wrap: anywhere; }
+.security-session {
+  padding: 18px 0;
+  border-bottom: 1px solid #e9e6f0;
+  overflow-wrap: anywhere;
+}
+.security-session h3 { margin-bottom: 8px; }
+.security-session p { margin: 6px 0; }

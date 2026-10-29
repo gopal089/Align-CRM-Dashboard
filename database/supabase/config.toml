@@ -1,3 +1,8 @@
 # Database-only Supabase workspace.
 # Run database CLI commands from the repository root with:
 # npx supabase --workdir database <command>
+
+# Required for direct password-login rate limits; enable the same hook in hosted Auth before release.
+[auth.hook.password_verification_attempt]
+enabled = true
+uri = "pg-functions://postgres/private/security_password_attempt"

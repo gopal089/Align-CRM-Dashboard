@@ -17,6 +17,7 @@ import type { Stage } from "../lib/auth";
 import { entities } from "../lib/model";
 import { exportRecords } from "../lib/data";
 import { PageTitle, Section, ErrorMessage } from "./ui";
+import Security from "./Security";
 import Billing from "./Billing";
 import { assertExportAllowed } from "../lib/billing";
 export default function Settings() {
@@ -118,6 +119,7 @@ export default function Settings() {
           {[
             ["workspace", "Workspace"],
             ["profile", "Your profile"],
+            ["security", "Security & sessions"],
             ["pipeline", "Sales pipeline"],
             ["sources", "Lead sources"],
             ["integrations", "Integrations & payments"],
@@ -145,7 +147,9 @@ export default function Settings() {
           </Link>
         </nav>
         <div className="settings-main">
-          {tab === "billing" ? (
+          {tab === "security" ? (
+            <Security />
+          ) : tab === "billing" ? (
             <Billing />
           ) : tab === "workspace" ? (
             <Section

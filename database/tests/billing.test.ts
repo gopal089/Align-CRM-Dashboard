@@ -8,6 +8,9 @@ const query = async (sql: string, values: unknown[] = []) =>
   (await db.query<any>(sql, values)).rows;
 async function actor(id = uid) {
   await db.exec(
+    `reset role; insert into auth.users(id,email) values('${id}','${id}@test.invalid') on conflict do nothing; insert into auth.sessions(id,user_id) values('${id}','${id}') on conflict do nothing; insert into private.security_sessions(session_id,user_id) values('${id}','${id}') on conflict do nothing; select set_config('request.jwt.claims','{"session_id":"${id}"}',false)`,
+  );
+  await db.exec(
     `reset role;set role authenticated;select set_config('request.jwt.claim.sub','${id}',false)`,
   );
 }
@@ -44,7 +47,7 @@ async function cleanup() {
 }
 beforeAll(async () => {
   await db.exec(
-    `create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`,
+    `create role supabase_auth_admin nologin;create role anon nologin;create role authenticated nologin;create role service_role nologin bypassrls;create schema auth;create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz,user_agent text,ip inet);create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;`,
   );
   for (const file of readdirSync("database/supabase/migrations")
     .filter((f) => f.endsWith(".sql"))

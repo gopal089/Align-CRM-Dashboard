@@ -281,6 +281,13 @@ Deno.serve(async (req: Request) => {
       error,
     } = await backend.auth.getUser(jwt);
     if (error || !user) return reply({ error: "Sign in first" }, 401);
+    const caller = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const access = await caller.rpc("security_session_ok");
+    if (access.error || !access.data)
+      return reply({ error: "Verify your account or sign in again" }, 401);
     const org = String(payload.org_id || "");
     const member = await checked(
       backend

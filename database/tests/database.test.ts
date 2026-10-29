@@ -14,6 +14,9 @@ let org: string,
   pitch: string;
 async function user(id: string) {
   await db.exec(
+    `reset role; insert into auth.sessions(id,user_id) values('${id}','${id}') on conflict do nothing; insert into private.security_sessions(session_id,user_id) values('${id}','${id}') on conflict do nothing; select set_config('request.jwt.claims','{"session_id":"${id}"}',false)`,
+  );
+  await db.exec(
     `reset role; set role authenticated; select set_config('request.jwt.claim.sub','${id}',false)`,
   );
 }
@@ -22,7 +25,7 @@ async function rows(sql: string, params: any[] = []) {
 }
 beforeAll(async () => {
   await db.exec(
-    `create role anon nologin;create role authenticated nologin;create schema auth;create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values('${a}','a@test.invalid'),('${b}','b@test.invalid'),('${c}','c@test.invalid'),('${outsider}','outsider@test.invalid');`,
+    `create role service_role nologin bypassrls;create role supabase_auth_admin nologin;create role anon nologin;create role authenticated nologin;create schema auth;create table auth.sessions(id uuid primary key,user_id uuid,not_after timestamptz,user_agent text,ip inet);create table auth.users(id uuid primary key,email text);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;insert into auth.users values('${a}','a@test.invalid'),('${b}','b@test.invalid'),('${c}','c@test.invalid'),('${outsider}','outsider@test.invalid');`,
   );
   for (const migration of readdirSync("database/supabase/migrations")
     .filter((n) => n.endsWith(".sql"))

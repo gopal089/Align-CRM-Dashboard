@@ -1,3 +1,4 @@
+import { logout } from "../lib/security";
 import { useEffect, useState, useRef } from "react";
 import {
   NavLink,
@@ -225,7 +226,10 @@ export default function Shell() {
                 {
                   label: "Sign out",
                   action: async () => {
-                    const { error } = await supabase.auth.signOut();
+                    const error = await logout().then(
+                      () => null,
+                      (e) => e,
+                    );
                     if (error) toast.error(error.message);
                   },
                 },

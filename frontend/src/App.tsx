@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, Link } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { configured } from "./lib/client";
 import { entities } from "./lib/model";
+import { SecurityChallenge } from "./components/Security";
 import AuthScreen from "./components/AuthScreen";
 import Shell from "./components/Shell";
 const Dashboard = lazy(() => import("./components/Dashboard"));
@@ -36,7 +37,7 @@ class ErrorBoundary extends Component<
   }
 }
 function AppRoutes() {
-  const { session, org, loading, error, recovery } = useAuth();
+  const { session, org, loading, error, recovery, securityState } = useAuth();
   if (loading)
     return (
       <div className="startup-loading">
@@ -51,6 +52,7 @@ function AppRoutes() {
         <p>Check the Supabase connection and apply the project migrations.</p>
       </div>
     );
+  if (session && securityState?.needs_code) return <SecurityChallenge />;
   if (!configured || !session || !org || recovery) return <AuthScreen />;
   return (
     <Routes>
