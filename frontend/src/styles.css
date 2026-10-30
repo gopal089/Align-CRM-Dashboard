@@ -4013,3 +4013,69 @@ tr.selected-row {
 }
 .security-session h3 { margin-bottom: 8px; }
 .security-session p { margin: 6px 0; }
+/* Workspace customization uses the existing form, button, notice and modal styles. */
+.saved-views {
+  margin-bottom: 20px;
+}
+.customization-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.customization-toolbar label,
+.saved-view-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+}
+.customization-toolbar select {
+  min-height: 36px;
+}
+.custom-field-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.custom-field-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.custom-field-row small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.custom-field-row .customization-toolbar {
+  margin-bottom: 0;
+}
+.custom-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+.custom-filter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.custom-filter-row input,
+.custom-filter-row select {
+  flex: 1;
+  min-width: 140px;
+}
+.saved-view-form {
+  display: grid;
+  gap: 16px;
+}
+@media (max-width: 640px) {
+  .custom-field-row {
+    flex-direction: column;
+  }
+}

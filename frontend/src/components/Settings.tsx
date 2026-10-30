@@ -19,6 +19,7 @@ import { exportRecords } from "../lib/data";
 import { PageTitle, Section, ErrorMessage } from "./ui";
 import Security from "./Security";
 import Billing from "./Billing";
+import CustomFieldsSettings from "./CustomFields";
 import { assertExportAllowed } from "../lib/billing";
 export default function Settings() {
   const { org, profile, role, memberships, setOrgId, refresh } = useAuth();
@@ -120,6 +121,7 @@ export default function Settings() {
             ["workspace", "Workspace"],
             ["profile", "Your profile"],
             ["security", "Security & sessions"],
+            ["custom-fields", "Custom fields"],
             ["pipeline", "Sales pipeline"],
             ["sources", "Lead sources"],
             ["integrations", "Integrations & payments"],
@@ -149,6 +151,8 @@ export default function Settings() {
         <div className="settings-main">
           {tab === "security" ? (
             <Security />
+          ) : tab === "custom-fields" ? (
+            <CustomFieldsSettings />
           ) : tab === "billing" ? (
             <Billing />
           ) : tab === "workspace" ? (

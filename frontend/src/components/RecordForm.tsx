@@ -8,6 +8,12 @@ import { defaults } from "../lib/data";
 import type { Entity, Field, Row } from "../lib/model";
 import { cleanSearch } from "../lib/utils";
 import { Modal, ErrorMessage } from "./ui";
+import {
+  serializeCustomValues,
+  supportsCustomization,
+  useCustomFields,
+} from "../lib/customization";
+import { CustomValueInput } from "./CustomFields";
 export function RelationField({
   field,
   value,
@@ -121,6 +127,7 @@ export default function RecordForm({
   initial?: Record<string, any>;
 }) {
   const { org, session, role } = useAuth();
+  const customFields = useCustomFields(entity.table);
   const cache = useQueryClient();
   const [values, setValues] = useState<Record<string, any>>(() => ({
     ...defaults(entity, session!.user.id, org),
@@ -183,6 +190,16 @@ export default function RecordForm({
     setBusy(true);
     try {
       const payload: Record<string, any> = { org_id: org!.id };
+      if (supportsCustomization(entity.table)) {
+        if (!customFields.data || customFields.error)
+          throw new Error(
+            "Custom fields could not be loaded. Retry before saving.",
+          );
+        payload.custom_values = serializeCustomValues(
+          values.custom_values || {},
+          customFields.data,
+        );
+      }
       for (const f of entity.fields) {
         let v = values[f.key];
         if (f.key === "name") v = String(v || "").trim();
@@ -362,6 +379,49 @@ export default function RecordForm({
               );
             })}
           </div>
+          {supportsCustomization(entity.table) && (
+            <div className="section-editor">
+              <h3>Custom fields</h3>
+              {customFields.isPending && <p>Loading custom fields…</p>}
+              {customFields.error && (
+                <ErrorMessage
+                  error={(customFields.error as Error).message}
+                  retry={() => customFields.refetch()}
+                />
+              )}
+              <div className="form-grid">
+                {customFields.data
+                  ?.filter((field) => !field.archived_at)
+                  .map((field) => (
+                    <label key={field.id}>
+                      <span>{field.name}</span>
+                      <CustomValueInput
+                        field={field}
+                        value={values.custom_values?.[field.id]}
+                        onChange={(value) =>
+                          setValues((current) => ({
+                            ...current,
+                            custom_values: {
+                              ...current.custom_values,
+                              [field.id]: value,
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                  ))}
+              </div>
+              {customFields.data?.some(
+                (field) =>
+                  field.archived_at && values.custom_values?.[field.id] != null,
+              ) && (
+                <p className="fine-print">
+                  Archived field values are retained unchanged. Restore a field
+                  in Settings to edit its value.
+                </p>
+              )}
+            </div>
+          )}
           {isPitch && (
             <div className="notice">
               Sent means you manually recorded an external send. This app does
@@ -483,7 +543,13 @@ export default function RecordForm({
           </button>
           <button
             className="button primary"
-            disabled={busy || sectionQuery.isLoading || !!sectionQuery.error}
+            disabled={
+              busy ||
+              sectionQuery.isLoading ||
+              !!sectionQuery.error ||
+              (supportsCustomization(entity.table) &&
+                (customFields.isPending || !!customFields.error))
+            }
           >
             {busy && <LoaderCircle size={16} className="spin" />}
             {record ? "Save changes" : `Create ${entity.singular}`}

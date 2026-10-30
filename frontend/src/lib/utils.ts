@@ -122,6 +122,7 @@ export function csv(
   rows: Record<string, unknown>[],
   columns: string[],
   filename: string,
+  columnLabels: Record<string, string> = {},
 ) {
   const cell = (v: unknown) => {
     const s = String(v ?? "");
@@ -130,7 +131,7 @@ export function csv(
     );
   };
   const text = [
-    columns.map(cell).join(","),
+    columns.map((column) => cell(columnLabels[column] || column)).join(","),
     ...rows.map((r) => columns.map((c) => cell(r[c])).join(",")),
   ].join("\r\n");
   const a = document.createElement("a");

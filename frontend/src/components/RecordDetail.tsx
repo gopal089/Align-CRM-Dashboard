@@ -43,6 +43,7 @@ import {
 } from "./ui";
 import { Cell, RecordTable } from "./RecordList";
 import RecordForm from "./RecordForm";
+import { useCustomFields, supportsCustomization } from "../lib/customization";
 function Related({
   table,
   foreignKey,
@@ -111,6 +112,7 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
   const { id } = useParams();
   const { org, role, session, members } = useAuth();
   const { data: record, isLoading, error } = useRecord(entity, id);
+  const customFields = useCustomFields(entity.table);
   const permissions = useRecordPermissions(entity.table, id ? [id] : []);
   const preserved = !!(id && permissions.data?.[id]?.preserved);
   const [params, setParams] = useSearchParams();
@@ -558,6 +560,41 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
                     ))}
                   </dl>
                 </Section>
+                {supportsCustomization(entity.table) && (
+                  <Section title="Custom fields">
+                    {customFields.isPending && <Loading />}
+                    {customFields.error && (
+                      <ErrorMessage
+                        error={(customFields.error as Error).message}
+                        retry={() => customFields.refetch()}
+                      />
+                    )}
+                    {customFields.data?.length === 0 && (
+                      <p className="muted">No custom fields configured.</p>
+                    )}
+                    <dl className="record-details">
+                      {customFields.data
+                        ?.filter(
+                          (field) =>
+                            !field.archived_at ||
+                            record.custom_values?.[field.id] != null,
+                        )
+                        .map((field) => (
+                          <div key={field.id}>
+                            <dt>
+                              {field.name}
+                              {field.archived_at
+                                ? " · Archived (value retained)"
+                                : ""}
+                            </dt>
+                            <dd>
+                              <Cell column={`cf:${field.id}`} row={record} />
+                            </dd>
+                          </div>
+                        ))}
+                    </dl>
+                  </Section>
+                )}
                 {entity.fields
                   .filter((f) => f.type === "textarea")
                   .map((f) => (

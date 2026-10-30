@@ -4,6 +4,12 @@ import { useAuth } from "./auth";
 import type { Entity, Row } from "./model";
 import { cleanSearch, period, today, zonedBoundary } from "./utils";
 import { assertExportAllowed } from "./billing";
+import {
+  applyCustomFilters,
+  supportsCustomization,
+  useCustomFields,
+  type CustomField,
+} from "./customization";
 export const pageSize = 12;
 export function listQuery(
   entity: Entity,
@@ -12,6 +18,7 @@ export function listQuery(
   select = "*",
   count = false,
   zone = "Asia/Kolkata",
+  customFields: CustomField[] = [],
 ) {
   let query = supabase
     .from(entity.table)
@@ -78,21 +85,42 @@ export function listQuery(
     query = query
       .gt("due_date", params.get("due_after")!)
       .neq("status", "Completed");
+  if (supportsCustomization(entity.table))
+    query = applyCustomFilters(query, params, customFields);
   const sort = params.get("sort") || "created_at";
-  const allowed = [...entity.columns, "created_at", "updated_at"];
+  const customSort = customFields.find((f) => sort === `cf:${f.id}`);
+  const allowed = [
+    ...entity.columns,
+    ...(supportsCustomization(entity.table)
+      ? entity.fields.filter((f) => f.type !== "textarea").map((f) => f.key)
+      : []),
+    "created_at",
+    "updated_at",
+  ];
   query = query
-    .order(allowed.includes(sort) ? sort : "created_at", {
-      ascending: params.get("direction") === "asc",
-    })
+    .order(
+      customSort
+        ? `custom_values->${customSort.id}`
+        : allowed.includes(sort)
+          ? sort
+          : "created_at",
+      {
+        ascending: params.get("direction") === "asc",
+        ...(customSort ? { nullsFirst: false } : {}),
+      },
+    )
     .order("id");
   return query.returns<Row[]>();
 }
 export function useRecords(entity: Entity, params: URLSearchParams) {
   const { org } = useAuth();
+  const custom = useCustomFields(entity.table);
   const page = Math.max(1, Number(params.get("page")) || 1);
   return useQuery({
     queryKey: ["records", entity.table, org!.id, params.toString()],
+    enabled: !supportsCustomization(entity.table) || !custom.isPending,
     queryFn: async () => {
+      if (custom.error) throw custom.error;
       const { data, error, count } = await listQuery(
         entity,
         org!.id,
@@ -100,6 +128,7 @@ export function useRecords(entity: Entity, params: URLSearchParams) {
         "*",
         true,
         org!.timezone,
+        custom.data || [],
       ).range((page - 1) * pageSize, page * pageSize - 1);
       if (error) throw error;
       return { rows: data as Row[], count: count || 0 };
@@ -111,6 +140,7 @@ export async function exportRecords(
   org: string,
   params: URLSearchParams,
   zone = "Asia/Kolkata",
+  customFields: CustomField[] = [],
 ) {
   const rows: Row[] = [];
   await assertExportAllowed(org, entity.table);
@@ -123,6 +153,7 @@ export async function exportRecords(
       "*",
       false,
       zone,
+      customFields,
     ).range(start, start + 499);
     if (error) throw error;
     rows.push(...(data as Row[]));

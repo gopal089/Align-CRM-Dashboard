@@ -44,6 +44,14 @@ import { supabase } from "../lib/client";
 import { Badge, Empty, ErrorMessage, Loading, Modal, PageTitle } from "./ui";
 import RecordForm from "./RecordForm";
 import { useRecordPermissions } from "../lib/billing";
+import {
+  customLabel,
+  customValue,
+  supportsCustomization,
+  useCustomFields,
+  visibleColumns,
+} from "../lib/customization";
+import SavedViews from "./SavedViews";
 export function RelationLink({ table, id }: { table: string; id: string }) {
   const { org } = useAuth();
   const result = useQuery({
@@ -74,7 +82,7 @@ export function RelationLink({ table, id }: { table: string; id: string }) {
 }
 export function Cell({ column, row }: { column: string; row: Row }) {
   const { org, members } = useAuth();
-  const value = row[column];
+  const value = customValue(row, column);
   if (value === null || value === undefined || value === "")
     return <span className="muted">—</span>;
   if (["status", "stage", "priority", "type"].includes(column))
@@ -148,6 +156,7 @@ export function RecordTable({
 }) {
   const navigate = useNavigate();
   const { role, session } = useAuth();
+  const customFields = useCustomFields(entity.table);
   const eligible = rows.filter(
     (r) => role !== "Sales Representative" || r.owner_id === session!.user.id,
   );
@@ -173,12 +182,16 @@ export function RecordTable({
               <th key={c}>
                 {onSort ? (
                   <button className="sort-button" onClick={() => onSort(c)}>
-                    {titleCase(c)}
+                    {c.startsWith("cf:")
+                      ? customLabel(c, customFields.data || [])
+                      : titleCase(c)}
                     <ArrowUpDown
                       size={12}
                       className={sort === c ? "sorted" : ""}
                     />
                   </button>
+                ) : c.startsWith("cf:") ? (
+                  customLabel(c, customFields.data || [])
                 ) : (
                   titleCase(c)
                 )}
@@ -359,6 +372,11 @@ function StageColumn({
 export default function RecordList({ entity }: { entity: Entity }) {
   const { org, members, role, session } = useAuth();
   const [params, setParams] = useSearchParams();
+  const customFields = useCustomFields(entity.table);
+  const customizable = supportsCustomization(entity.table);
+  const columns = customizable
+    ? visibleColumns(entity, params, customFields.data || [])
+    : entity.columns;
   const navigate = useNavigate();
   const location = useLocation();
   const cache = useQueryClient();
@@ -393,17 +411,35 @@ export default function RecordList({ entity }: { entity: Entity }) {
   async function exportAll() {
     setExporting(true);
     try {
-      const data = await exportRecords(entity, org!.id, params, org!.timezone);
+      if (customizable && (!customFields.data || customFields.error))
+        throw new Error("Load custom fields before exporting.");
+      const data = await exportRecords(
+        entity,
+        org!.id,
+        params,
+        org!.timezone,
+        customFields.data || [],
+      );
       const formatted = data.map((r) => ({
         ...r,
+        ...Object.fromEntries(
+          columns
+            .filter((c) => c.startsWith("cf:"))
+            .map((c) => [c, customValue(r, c)]),
+        ),
         owner_id:
           members.find((m) => m.user_id === r.owner_id)?.profiles.name ||
           r.owner_id,
       }));
       csv(
         formatted,
-        ["id", ...entity.columns],
+        ["id", ...columns],
         `${entity.table}-${today(org!.timezone)}.csv`,
+        Object.fromEntries(
+          columns
+            .filter((c) => c.startsWith("cf:"))
+            .map((c) => [c, customLabel(c, customFields.data || [])]),
+        ),
       );
       toast.success(`Exported ${data.length} filtered records`);
     } catch (e) {
@@ -448,7 +484,18 @@ export default function RecordList({ entity }: { entity: Entity }) {
     }
   }
   const activeFilters = [...params.entries()].filter(
-    ([k]) => !["q", "page", "sort", "direction", "view", "new"].includes(k),
+    ([k]) =>
+      ![
+        "q",
+        "page",
+        "sort",
+        "direction",
+        "view",
+        "new",
+        "columns",
+        "saved_view",
+        "cf",
+      ].includes(k),
   );
   return (
     <>
@@ -477,6 +524,21 @@ export default function RecordList({ entity }: { entity: Entity }) {
           New {entity.singular}
         </button>
       </PageTitle>
+      {customizable && customFields.data && (
+        <SavedViews
+          entity={entity}
+          fields={customFields.data}
+          columns={columns}
+          params={params}
+          setParams={setParams}
+        />
+      )}
+      {customizable && customFields.error && (
+        <ErrorMessage
+          error={(customFields.error as Error).message}
+          retry={() => customFields.refetch()}
+        />
+      )}
       {entity.key === "pitch-desk" && pitchSummary.data && (
         <div className="pitch-metrics">
           {[
@@ -678,7 +740,7 @@ export default function RecordList({ entity }: { entity: Entity }) {
                 />
               ))}
           </div>
-        ) : records.isLoading ? (
+        ) : records.isLoading || (customizable && customFields.isPending) ? (
           <Loading />
         ) : records.error ? (
           <ErrorMessage
@@ -687,7 +749,7 @@ export default function RecordList({ entity }: { entity: Entity }) {
           />
         ) : rows.length ? (
           <RecordTable
-            entity={entity}
+            entity={{ ...entity, columns }}
             rows={rows}
             selected={selected}
             back={location.pathname + location.search}
