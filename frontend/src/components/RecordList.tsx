@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Link,
   useLocation,
@@ -52,6 +52,7 @@ import {
   visibleColumns,
 } from "../lib/customization";
 import SavedViews from "./SavedViews";
+const ContactImport = lazy(() => import("./ContactImport"));
 export function RelationLink({ table, id }: { table: string; id: string }) {
   const { org } = useAuth();
   const result = useQuery({
@@ -385,6 +386,7 @@ export default function RecordList({ entity }: { entity: Entity }) {
   const [filters, setFilters] = useState(false);
   const [selected, setSelected] = useState(new Set<string>());
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [bulk, setBulk] = useState("");
   const [saving, setSaving] = useState(false);
   const page = Math.max(1, Number(params.get("page")) || 1);
@@ -512,6 +514,11 @@ export default function RecordList({ entity }: { entity: Entity }) {
           <Download size={16} />
           {exporting ? "Exporting…" : "Export"}
         </button>
+        {entity.table === "contacts" && (
+          <button className="button" onClick={() => setImporting(true)}>
+            Import contacts
+          </button>
+        )}
         <button
           className="button primary"
           onClick={() => set("new", "1")}
@@ -524,6 +531,11 @@ export default function RecordList({ entity }: { entity: Entity }) {
           New {entity.singular}
         </button>
       </PageTitle>
+      {importing && entity.table === "contacts" && (
+        <Suspense fallback={<Loading />}>
+          <ContactImport key={org!.id} onClose={() => setImporting(false)} />
+        </Suspense>
+      )}
       {customizable && customFields.data && (
         <SavedViews
           entity={entity}

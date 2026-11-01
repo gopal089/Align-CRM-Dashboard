@@ -1,17 +1,23 @@
 // Real local Docker acceptance checks. Never accepts a hosted URL or project reference.
 // Usage: node backend/tests/customization.local-e2e.mjs <unlinked-local-workdir>
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 
 const root = process.argv[2];
+const localProject =
+  root &&
+  /project_id\s*=\s*"([^"]+)"/.exec(
+    readFileSync(root + "/supabase/config.toml", "utf8"),
+  )?.[1];
 if (
   !root ||
-  !readFileSync(root + "/supabase/config.toml", "utf8").includes(
-    'project_id = "align-fields-local-test"',
-  )
+  !["align-fields-local-test", "align-import-local-test"].includes(localProject)
 )
-  throw new Error("Use the isolated local test project only");
+  throw new Error("Use an isolated local test project only");
+const expectedMigrations = readdirSync("database/supabase/migrations").filter(
+  (name) => name.endsWith(".sql"),
+).length;
 const cli = spawnSync(
   "npx",
   ["--no-install", "supabase", "--workdir", root, "status", "-o", "json"],
@@ -114,7 +120,7 @@ function sql(statement) {
     [
       "exec",
       "-i",
-      "supabase_db_align-fields-local-test",
+      "supabase_db_" + localProject,
       "psql",
       "-U",
       "postgres",
@@ -181,18 +187,18 @@ let admin,
   secret,
   codes;
 try {
-  await test("all nine migrations applied; password hook remains disabled", async () => {
+  await test("all repository migrations applied; password hook remains disabled", async () => {
     ensure(
       Number(
         sql("select count(*) from supabase_migrations.schema_migrations"),
-      ) === 9,
+      ) === expectedMigrations,
       "Unexpected migration history",
     );
     const inspect = spawnSync(
       "docker",
       [
         "inspect",
-        "supabase_auth_align-fields-local-test",
+        "supabase_auth_" + localProject,
         "--format",
         "{{json .Config.Env}}",
       ],
@@ -905,3 +911,5 @@ try {
   );
   process.exitCode = 1;
 }
+
+export { test, ensure, user, rest, rpc, sql, security, request, billing };

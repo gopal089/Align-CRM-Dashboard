@@ -4079,3 +4079,11 @@ tr.selected-row {
     flex-direction: column;
   }
 }
+/* Contact import keeps the existing modal, form, table and notice components. */
+.import-mapping { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 20px; margin:16px 0; }
+.import-actions { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0 4px; }
+.import-recent { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0; }
+.import-recent h3 { width:100%; }
+.import-results { margin-top:24px; }
+.import-results .table-wrap { max-height:360px; overflow:auto; }
+@media(max-width:640px) { .import-mapping { grid-template-columns:1fr; } }

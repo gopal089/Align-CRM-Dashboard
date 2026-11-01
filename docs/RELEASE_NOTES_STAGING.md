@@ -1,4 +1,111 @@
-# Custom fields and saved views — staging release notes
+# Contacts CSV/XLSX import — current staging release
+
+## Scope and source
+
+- Branch: `feature/customer-import`, starting from custom-fields commit `8cb245f`.
+- Local implementation only. Pushing, migration application and staging deployment require separate approval. Nothing merges into main or releases to live in this task.
+- Contacts only. Leads, Companies, proposals, email and follow-ups are not part of this release.
+- The nine baseline migrations, existing security/billing functions and billing scheduler are unchanged.
+
+## Design, limits and dependencies
+
+- Contacts → Import contacts opens a lazy-loaded wizard: choose file, worksheet, map columns, choose Skip/Update existing, build the complete server preview, confirm, then commit bounded batches.
+- Exact parser versions: `papaparse@5.5.3` (CSV), `fflate@0.8.3` (bounded ZIP decoding), `saxes@6.0.0` (read-only streaming XML); `@types/papaparse@5.3.16` is development-only. Their lockfile is committed. Releases predate this work; fflate 0.8.3 includes the ZIP64 fix missing in 0.8.2.
+- ExcelJS was evaluated and removed because its dependency tree reported vulnerabilities. The final dependency tree passed npm audit with zero findings at verification time. An audit is a point-in-time check, not a guarantee against future advisories.
+- Parsing runs in a dedicated worker only after file selection. It does not execute formulas, macros, scripts, external links or XML entities. The main thread terminates parsing after 15 seconds.
+- Accepted: UTF-8 CSV (including BOM), XLSX with up to 20 worksheets; choose one worksheet. First row is the header. Excel date styles become YYYY-MM-DD values; numeric identifiers should be stored as text if leading zeros matter.
+- Limits: 5 MiB file, 10,000 data rows across the workbook, 100 columns, 2,000 characters per cell, 250,000 worksheet cells, 1,000 ZIP entries, 20 MiB total expanded ZIP content. ZIP64, encrypted ZIPs, legacy XLS and XLSM are rejected.
+- The ZIP central directory is checked before decompression; actual output sizes are checked during streaming in small compressed chunks, including dishonest archive-size metadata.
+- Uploads and commits contain at most 25 rows; upload JSON targets 90 KiB with a server maximum of 96 KiB. A single oversized row is rejected. A job stores at most 16 MiB of temporary JSON and a workspace has at most three undiscarded recent jobs.
+- No import Edge Function, paid account, queue or background import worker is required. Browser parsing and small Postgres RPC transactions avoid the hosted Edge Function CPU/runtime limits. A full 10,000-row hosted performance/load test has not been performed.
+
+## Database and permissions
+
+New migration, after the existing nine:
+
+`20261101112111_contact_import.sql`
+
+It adds:
+
+- `private.contact_import_jobs` and `private.contact_import_rows`: private staged/source data, expiry, immutable server-generated row retry IDs, reviewed target IDs and committed outcomes.
+- Both tables have RLS, owner/workspace read policies and restrictive session/MFA policies. All direct PUBLIC/anon/authenticated table privileges are revoked; do not expose the private schema through the Data API.
+- Public invoker RPC `public.contact_import(uuid,text,uuid,jsonb)` delegates to the narrow private definer workflow. Execution is authenticated-only. The private helper needs elevated access to its inaccessible staging ledger and explicitly checks native session/MFA, active workspace membership, job ownership, record ownership, billing visibility/preservation and current permissions. These checks are required because definer code bypasses ordinary RLS. Existing record, custom-value and billing-quota triggers still run.
+- Private helpers `import_email`, `import_phone`, `contact_import_lock`, `import_contact_value`, `contact_import`, `cleanup_contact_imports`. All use an empty search path. Only the pure normalization functions need authenticated/service-role execution for contact expression indexes; no staging read/write permission is granted.
+- Two normalized contact indexes and `aa_contact_import_lock` on Contacts. The trigger acquires the existing billing workspace advisory lock before record/custom/quota triggers, serializing duplicate decisions with ordinary saves. Other record types are unchanged.
+- A separate hourly SQL Cron job named `align-contact-import-cleanup`, scheduled at minute 17. It deletes expired jobs and cascades temporary rows. The migration enables pg_cron only when available. PGlite skips Cron; real Docker verification checks the job. It does not modify existing billing jobs.
+
+## Duplicate, transaction and retry behavior
+
+- Email is trimmed/lowercased. Phone punctuation is removed, leading 00 is normalized, and 7–15 digits are required. No country code is guessed. Local and international numbers must use consistent country-code conventions to match.
+- Duplicate checks use email OR phone against workspace contacts, including archived/preserved matches, and earlier valid file rows. Name-only rows cannot be deduplicated automatically.
+- Skip leaves matching contacts unchanged. Update existing uses one explicit reviewed target ID; it never inserts an extra duplicate. Conflicting email/phone matches become preview errors. There is no Import anyway option and no automatic merging of multiple contacts.
+- New contacts belong to the importing user. V1 maps Name, Email, Phone, Job title, Tags, Notes and active Contact custom fields. Company/owner assignment is not imported; updates preserve those links. Empty and unmapped values do not erase existing values.
+- Custom fields use permanent IDs and current definitions. Zero/No remain typed values. Existing archived custom values are retained; a field archived between preview and commit causes that row to fail safely.
+- A confirmation value is issued only after all rows have been reviewed. Every committed row specifies its retry ID and reviewed target. Batches run in row order and transactionally record contact changes plus outcomes. Replayed rows return their existing outcome; a lost response or reopened import does not create another contact.
+- Permissions, matching identities, ownership and quotas are checked again at commit. Changed matches/permissions produce failed rows, not silent target changes. A row failure rolls back that row; completed rows stay committed.
+- Imported totals include updated rows; Updated is a subset. The final report separately shows Imported, Updated, Skipped and Failed.
+- Error CSV contains original source columns, row number and error. It uses the existing CSV helper plus protection for leading-whitespace formula-like values/headers. It does not export values from matched CRM records.
+
+## Temporary-data retention and resume
+
+- Raw files remain in browser memory. Source rows, including unmapped columns, and mapped values are stored privately for resume and error reports. Users should remove unnecessary sensitive columns before importing.
+- Access expires exactly 24 hours after job creation. Hourly cleanup normally removes expired data within the next hour; outages or disabled Cron can delay physical deletion. Verify Cron operation before staging acceptance.
+- Closing/pausing stops future client batches after the current request. No import continues automatically in the background. Reopen Contacts → Import contacts → Recent imports to resume.
+- An interrupted upload requires reselecting the same file; a SHA-256 fingerprint and saved worksheet/mapping are checked, and previously uploaded rows must match exactly.
+- Discard temporary import immediately deletes temporary source/outcome rows and frees a job slot. Contacts already committed remain. Download the error report before discarding.
+- After expiry, restart with a fresh preview. Old job IDs cannot be revived. Normalized duplicate checks run again against already committed contacts.
+
+## Functions, secrets and manual configuration
+
+- New Edge Functions, Storage buckets, API secrets and frontend environment variables: none.
+- Keep existing frontend examples/settings and native TOTP/session configuration. Do not enable the optional password hook for this release.
+- Keep private tables/schema unexposed. Confirm the separate import-cleanup Cron job is active. Do not change billing Cron, Razorpay or Auth URLs for this feature.
+
+## Local verification
+
+- Run `npm test` and `npm run build` from this branch.
+- Initialize a fresh unlinked Docker project named `align-import-local-test`, copy all ten migrations and existing backend functions, enable native TOTP and keep the password hook disabled. Only loopback origins and test values are allowed. Studio/analytics/Storage are not needed for these tests.
+- Serve the existing account-security/crm-billing functions locally, then run `node backend/tests/customer-import.local-e2e.mjs <LOCAL_TEST_WORKDIR>`. The shared runner refuses hosted URLs and unknown project identities.
+- It first repeats the native 2FA, backup hashing/single use, session, rate-limit, billing and custom-field checks, then import permissions, preview, duplicates, explicit IDs, partial retries, quotas, custom fields, hostile rows, expiry and cleanup.
+- Run `npx supabase --workdir <LOCAL_TEST_WORKDIR> stop --project-id align-import-local-test` when finished. Never use --all.
+
+### Results for this local implementation
+
+- Full suite: 132 tests passed across 12 files; production build passed. The parser is emitted as a separate worker bundle.
+- Real Docker: all ten migrations applied. Sixteen existing native security/billing/custom-field groups and ten import groups passed, including 1,000 duplicate-heavy rows, transaction/retry behavior, ownership changes, quotas, expiry and cleanup.
+- Additional SQL tests cover retained-record protection after preview; parser tests cover malformed/oversized/encoded input, workbook formulas/macros/entities, inflated-size lies, decompression bombs, multiple sheets and currency formats.
+- Local browser: CSV mapping, custom number/yes-no columns, preview with one duplicate/error, confirmation and final 1 imported / 1 skipped / 1 failed report passed. Reopening the completed job after signing in again also passed.
+- Browser download automation did not observe the error-file completion. The real CSV Blob-generation path and formula escaping passed automated tests; repeat the actual browser download manually on staging.
+- Staging/live were not accessed. Physical-phone, 24-hour wall-clock retention, hosted performance and a 10,000-row hosted load test were not performed.
+
+## Staging deployment plan — not executed
+
+1. Inspect the final local commit and secret scan. Obtain separate approval to push only `feature/customer-import`: `git push origin feature/customer-import`.
+2. Confirm the separate staging project and staging Render service. Save a fresh private schema/data recovery copy outside Git. Never link or target live.
+3. Read history: `npx --no-install supabase --workdir database migration list --project-ref <STAGING_PROJECT_REF>`.
+4. Preview: `npx --no-install supabase --workdir database db push --project-ref <STAGING_PROJECT_REF> --skip-vault --dry-run`. Stop unless the existing nine versions match and only `20261101112111_contact_import.sql` is pending.
+5. Show the preview and obtain separate approval before applying: `npx --no-install supabase --workdir database db push --project-ref <STAGING_PROJECT_REF> --skip-vault`.
+6. Verify all ten migrations, private-table privileges/RLS, RPC anonymous denial, and `align-contact-import-cleanup` in Cron. Check that the previous billing jobs are unchanged. Do not deploy any Edge Function.
+7. After separate approval, change only the staging Render Static Site branch to `feature/customer-import`, keep Auto-Deploy Off, build `npm ci && npm run build`, publish `dist`, and preserve existing staging-only VITE variables and SPA rewrite. Manually deploy the approved commit.
+8. Run public HTTPS/asset checks first. Obtain separate approval for authenticated staging acceptance. Nothing merges into main or deploys to live in these steps.
+9. Frontend rollback uses the previous artifact/branch. Keep the additive import schema and existing cleanup job to remove temporary data. Committed contacts are ordinary CRM records; no automatic destructive undo is supplied.
+
+## Manual staging acceptance — after separate approval
+
+1. Sign in as staging administrator with existing 2FA. Confirm normal CRM/billing/custom-field flows.
+2. Contacts → Import contacts: upload a small UTF-8 CSV, then an XLSX with two worksheets. Choose the intended worksheet.
+3. Map core/custom columns, including number zero and No. Build preview; verify errors, duplicates and explicit target IDs before confirming. Contacts must not change during preview.
+4. Test Skip, then Update existing against existing contacts and repeated file rows. Blank/unmapped values and owner/company links must remain unchanged.
+5. Verify conflicting email/phone matches, invalid values and archived fields appear as errors. Confirm valid rows only and inspect the totals.
+6. Pause/close after a partial commit, reopen Recent imports and resume. A lost-response retry must not duplicate contacts. An interrupted upload must require the original file.
+7. Download error rows; open as text first and confirm source columns/errors and formula protection. Confirm ordinary CRM CSV export still works.
+8. Repeat as representative and as a different workspace user. Other owners' records and foreign jobs must be inaccessible; test a role/owner change between preview and commit.
+9. Check quota and retained-record denials; completed rows remain while failing rows are reported. Repeat the existing 2FA/session checklist.
+10. Test oversize, too many rows, wrong encoding, formula and macro files. Verify clear rejection. Inspect Cron history for cleanup and confirm expiry denies old jobs. Discard temporary test imports when reports are saved.
+
+---
+
+# Previous release: custom fields and saved views
 
 ## Scope and source
 
