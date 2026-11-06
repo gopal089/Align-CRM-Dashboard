@@ -73,6 +73,10 @@ export function listQuery(
     query = query.lte("expected_close_date", params.get("close_until")!);
   if (params.get("min")) query = query.gte("amount", params.get("min")!);
   if (params.get("max")) query = query.lte("amount", params.get("max")!);
+  // Finished tasks live under the Completed tab; every other task view shows
+  // open work only, unless a status filter asks for something specific.
+  if (entity.table === "tasks" && !params.get("status"))
+    query = query.neq("status", "Completed");
   if (params.get("due_before"))
     query = query
       .lte("due_date", params.get("due_before")!)

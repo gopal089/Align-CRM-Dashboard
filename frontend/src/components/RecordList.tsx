@@ -593,7 +593,7 @@ export default function RecordList({ entity }: { entity: Entity }) {
       {entity.key === "tasks" && (
         <div className="page-subnav">
           {[
-            ["All tasks", "/tasks"],
+            ["Open tasks", "/tasks"],
             [
               "Overdue",
               `/tasks?due_before=${addDays(today(org!.timezone), -1)}`,
