@@ -70,6 +70,7 @@ export function Confirm({
   destructive = false,
   confirmWord,
   confirmHint,
+  children,
 }: {
   open: boolean;
   onClose: () => void;
@@ -81,6 +82,8 @@ export function Confirm({
   // actions that hit many records at once and cannot be undone.
   confirmWord?: string;
   confirmHint?: string;
+  // Optional extra controls shown under the description, e.g. a checkbox.
+  children?: ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -97,6 +100,7 @@ export function Confirm({
       description={description}
     >
       <p className="muted">{description}</p>
+      {children}
       {confirmWord && (
         <label className="confirm-word">
           {confirmHint || `Type ${confirmWord} to confirm`}

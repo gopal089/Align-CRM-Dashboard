@@ -123,6 +123,7 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
   const cache = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<"delete" | "convert" | null>(null);
+  const [withDeal, setWithDeal] = useState(false);
   const [preview, setPreview] = useState(false);
   const [note, setNote] = useState("");
   const [noteBusy, setNoteBusy] = useState(false);
@@ -317,6 +318,23 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
             <Badge value={record.status || record.stage} />
           )}
         </div>
+        {/* Any member who can see an open lead may convert it. */}
+        {entity.table === "leads" &&
+          ["New", "Contacted", "Qualified"].includes(record.status) &&
+          !record.archived_at &&
+          !record.converted_contact_id && (
+            <button
+              className="button primary"
+              onClick={() => {
+                if (preserved) return toast.error(retentionMessage);
+                setWithDeal(false);
+                setConfirm("convert");
+              }}
+            >
+              Convert to contact
+              <ArrowUpRight size={15} />
+            </button>
+          )}
         {canEdit && (
           <button
             className="button"
@@ -381,44 +399,29 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
         </div>
       )}
       {entity.table === "leads" &&
-        record.status === "Qualified" &&
-        !record.archived_at && (
-          <div className="action-banner">
-            <div>
-              <strong>Ready for the next step?</strong>
-              <p>
-                Convert this lead into a contact and deal. Matching records are
-                reused.
-              </p>
-            </div>
-            <button
-              className="button primary"
-              disabled={!canEdit}
-              onClick={() => setConfirm("convert")}
-            >
-              Convert lead
-              <ArrowUpRight size={15} />
-            </button>
+        (record.converted_contact_id || record.converted_deal_id) && (
+          <div className="notice">
+            <Check size={17} />
+            This lead has been converted.
+            {record.converted_deal_id && (
+              <Link
+                className="text-link"
+                to={`/deals/${record.converted_deal_id}`}
+              >
+                Open deal
+                <ArrowUpRight size={14} />
+              </Link>
+            )}
+            {record.converted_contact_id && (
+              <Link
+                className="text-link"
+                to={`/contacts/${record.converted_contact_id}`}
+              >
+                Open contact
+              </Link>
+            )}
           </div>
         )}
-      {entity.table === "leads" && record.converted_deal_id && (
-        <div className="notice">
-          <Check size={17} />
-          This lead has been converted.
-          <Link className="text-link" to={`/deals/${record.converted_deal_id}`}>
-            Open deal
-            <ArrowUpRight size={14} />
-          </Link>
-          {record.converted_contact_id && (
-            <Link
-              className="text-link"
-              to={`/contacts/${record.converted_contact_id}`}
-            >
-              Open contact
-            </Link>
-          )}
-        </div>
-      )}
       {isPitch && (
         <div className="pitch-actions">
           <button className="button" onClick={() => setPreview(!preview)}>
@@ -751,19 +754,32 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
       <Confirm
         open={confirm === "convert"}
         onClose={() => setConfirm(null)}
-        title="Convert qualified lead?"
-        description="This creates or reuses the company and contact, then creates a deal with an initial value of zero. You can edit the deal amount next. Conversion is atomic and cannot be repeated."
+        title="Convert this lead to a contact?"
+        description="Align creates a contact from this lead's name, email, phone, company and source, and copies custom fields that have the same name and type on contacts. The lead is kept and marked Converted. This happens all at once and cannot be repeated."
         onConfirm={async () => {
-          const { data, error } = await supabase.rpc("convert_lead", {
-            lead: id,
-            deal_amount: 0,
-          });
+          const { data, error } = await supabase.rpc(
+            "convert_lead_to_contact",
+            { lead: id, with_deal: withDeal },
+          );
           if (error) throw error;
           await cache.invalidateQueries();
-          toast.success("Lead converted");
-          navigate(`/deals/${data}`);
+          toast.success(
+            withDeal
+              ? "Lead converted to a contact and a new deal"
+              : "Lead converted to a contact",
+          );
+          navigate(`/contacts/${data.contact_id}`);
         }}
-      />
+      >
+        <label className="checkbox-label confirm-option">
+          <input
+            type="checkbox"
+            checked={withDeal}
+            onChange={(e) => setWithDeal(e.target.checked)}
+          />
+          Also create a deal (starts at 0 in the first pipeline stage)
+        </label>
+      </Confirm>
     </>
   );
 }

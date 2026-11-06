@@ -4243,3 +4243,7 @@ tr.selected-row {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 11px;
 }
+.confirm-option {
+  margin: 12px 0 4px;
+  font-size: 12px;
+}

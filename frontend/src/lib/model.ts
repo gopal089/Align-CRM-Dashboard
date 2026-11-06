@@ -170,6 +170,7 @@ export const entities: Record<string, Entity> = {
       { key: "phone", label: "Phone" },
       { key: "job_title", label: "Job title" },
       company,
+      { key: "source", label: "Source", hint: "Where this contact came from." },
       owner,
       {
         key: "tags",

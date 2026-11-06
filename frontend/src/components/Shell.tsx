@@ -421,11 +421,7 @@ export default function Shell() {
           {[
             ["1", "Add a company and a contact", "/contacts"],
             ["2", "Capture and qualify a lead", "/leads"],
-            [
-              "3",
-              "Convert a qualified lead to a deal",
-              "/leads?status=Qualified",
-            ],
+            ["3", "Convert a lead to a contact", "/leads"],
             ["4", "Create a proposal in Pitch Desk", "/pitch-desk"],
             ["5", "Set a target and review performance", "/targets"],
           ].map(([n, label, to]) => (
