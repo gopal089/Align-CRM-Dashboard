@@ -12,3 +12,7 @@ coverage/
 *.tsbuildinfo
 
 .DS_Store
+
+# Local assistant notes (contain environment details; keep out of git)
+CLAUDE.md
+Claude outputs/

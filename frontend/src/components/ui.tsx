@@ -11,7 +11,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 export function Logo() {
   return (
     <span className="brand">
@@ -68,6 +68,8 @@ export function Confirm({
   title,
   description,
   destructive = false,
+  confirmWord,
+  confirmHint,
 }: {
   open: boolean;
   onClose: () => void;
@@ -75,9 +77,18 @@ export function Confirm({
   title: string;
   description: string;
   destructive?: boolean;
+  // When set, the button stays locked until this exact text is typed. Used for
+  // actions that hit many records at once and cannot be undone.
+  confirmWord?: string;
+  confirmHint?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [typed, setTyped] = useState("");
+  useEffect(() => {
+    if (!open) setTyped("");
+  }, [open]);
+  const locked = !!confirmWord && typed.trim() !== confirmWord;
   return (
     <Modal
       open={open}
@@ -86,6 +97,18 @@ export function Confirm({
       description={description}
     >
       <p className="muted">{description}</p>
+      {confirmWord && (
+        <label className="confirm-word">
+          {confirmHint || `Type ${confirmWord} to confirm`}
+          <input
+            value={typed}
+            disabled={busy}
+            autoComplete="off"
+            aria-label={confirmHint || `Type ${confirmWord} to confirm`}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </label>
+      )}
       {error && <ErrorMessage error={error} />}
       <div className="form-actions">
         <button className="button" disabled={busy} onClick={onClose}>
@@ -93,7 +116,7 @@ export function Confirm({
         </button>
         <button
           className={`button ${destructive ? "danger" : "primary"}`}
-          disabled={busy}
+          disabled={busy || locked}
           onClick={async () => {
             setBusy(true);
             setError("");

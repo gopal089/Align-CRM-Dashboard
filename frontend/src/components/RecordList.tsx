@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   Link,
   useLocation,
@@ -44,6 +44,7 @@ import { supabase } from "../lib/client";
 import { Badge, Empty, ErrorMessage, Loading, Modal, PageTitle } from "./ui";
 import RecordForm from "./RecordForm";
 import { useRecordPermissions } from "../lib/billing";
+import BulkActions from "./BulkActions";
 import {
   customLabel,
   customValue,
@@ -384,11 +385,11 @@ export default function RecordList({ entity }: { entity: Entity }) {
   const records = useRecords(entity, params);
   const pitchSummary = useSummary("all");
   const [filters, setFilters] = useState(false);
-  const [selected, setSelected] = useState(new Set<string>());
+  // Keyed by id, so a selection made on one page is still known after paging.
+  const [selected, setSelected] = useState(new Map<string, Row>());
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [bulk, setBulk] = useState("");
-  const [saving, setSaving] = useState(false);
+  const selectedIds = useMemo(() => new Set(selected.keys()), [selected]);
   const page = Math.max(1, Number(params.get("page")) || 1);
   const count = records.data?.count || 0;
   const permissions = useRecordPermissions(
@@ -401,7 +402,14 @@ export default function RecordList({ entity }: { entity: Entity }) {
   }));
   const board = entity.key === "deals" && params.get("view") !== "table";
   const showForm = params.get("new") === "1";
-  useEffect(() => setSelected(new Set()), [params.toString(), entity.key]);
+  // Changing a filter can change what the rows mean, so the selection is
+  // dropped. Turning the page does not, so a selection may span pages.
+  const filterKey = useMemo(() => {
+    const p = new URLSearchParams(params);
+    p.delete("page");
+    return p.toString();
+  }, [params]);
+  useEffect(() => setSelected(new Map()), [filterKey, entity.key]);
   function set(key: string, value: string) {
     setParams((p) => {
       if (value) p.set(key, value);
@@ -462,27 +470,6 @@ export default function RecordList({ entity }: { entity: Entity }) {
     else {
       await cache.invalidateQueries();
       toast.success(`Moved to ${stage}`);
-    }
-  }
-  async function bulkUpdate() {
-    if (!bulk || !selected.size) return;
-    setSaving(true);
-    try {
-      const { data, error } = await supabase
-        .from(entity.table)
-        .update({ status: bulk })
-        .eq("org_id", org!.id)
-        .in("id", [...selected])
-        .select("id");
-      if (error) throw error;
-      await cache.invalidateQueries();
-      toast.success(`Updated ${data?.length || 0} records`);
-      setSelected(new Set());
-      setBulk("");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setSaving(false);
     }
   }
   const activeFilters = [...params.entries()].filter(
@@ -707,35 +694,14 @@ export default function RecordList({ entity }: { entity: Entity }) {
           </div>
         )}
         {selected.size > 0 && (
-          <div className="bulk-toolbar">
-            <span>{selected.size} selected</span>
-            <select
-              aria-label="Bulk status"
-              value={bulk}
-              onChange={(e) => setBulk(e.target.value)}
-            >
-              <option value="">Update status…</option>
-              {entity.status
-                ?.filter((s) => s !== "Converted")
-                .map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-            </select>
-            <button
-              className="button primary small"
-              disabled={!bulk || saving}
-              onClick={bulkUpdate}
-            >
-              Apply
-            </button>
-            <button
-              className="icon-button"
-              onClick={() => setSelected(new Set())}
-              aria-label="Clear selection"
-            >
-              <X size={16} />
-            </button>
-          </div>
+          <BulkActions
+            entity={entity}
+            rows={[...selected.values()]}
+            selected={selectedIds}
+            columns={columns}
+            customFields={customFields.data || []}
+            onClear={() => setSelected(new Map())}
+          />
         )}
         {board ? (
           <div className="kanban">
@@ -763,35 +729,33 @@ export default function RecordList({ entity }: { entity: Entity }) {
           <RecordTable
             entity={{ ...entity, columns }}
             rows={rows}
-            selected={selected}
+            selected={selectedIds}
             back={location.pathname + location.search}
-            onToggle={
-              ["leads", "tasks"].includes(entity.key)
-                ? (id) =>
-                    setSelected((s) => {
-                      const n = new Set(s);
-                      n.has(id) ? n.delete(id) : n.add(id);
-                      return n;
-                    })
-                : undefined
+            onToggle={(id) =>
+              setSelected((current) => {
+                const next = new Map(current);
+                const row = rows.find((r) => r.id === id);
+                if (next.has(id)) next.delete(id);
+                else if (row) next.set(id, row);
+                return next;
+              })
             }
-            onToggleAll={
-              ["leads", "tasks"].includes(entity.key)
-                ? () =>
-                    setSelected((s) =>
-                      rows.every((r) => s.has(r.id))
-                        ? new Set()
-                        : new Set(
-                            rows
-                              .filter(
-                                (r) =>
-                                  role !== "Sales Representative" ||
-                                  r.owner_id === session!.user.id,
-                              )
-                              .map((r) => r.id),
-                          ),
-                    )
-                : undefined
+            onToggleAll={() =>
+              setSelected((current) => {
+                const next = new Map(current);
+                // Representatives may only change their own records, so the
+                // header tick box covers exactly the rows they can act on.
+                const eligible = rows.filter(
+                  (r) =>
+                    role !== "Sales Representative" ||
+                    r.owner_id === session!.user.id,
+                );
+                // Only this page is affected; other pages keep their selection.
+                if (eligible.every((r) => next.has(r.id)))
+                  eligible.forEach((r) => next.delete(r.id));
+                else eligible.forEach((r) => next.set(r.id, r));
+                return next;
+              })
             }
             sort={params.get("sort") || "created_at"}
             onSort={(column) =>

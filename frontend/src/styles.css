@@ -1575,6 +1575,7 @@ tr.selected-row {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
   background: #f6f3fc;
   border-top: 1px solid #ece6f6;
   padding: 10px 18px;
@@ -1588,6 +1589,20 @@ tr.selected-row {
 }
 .bulk-toolbar > .icon-button {
   margin-left: auto;
+}
+.bulk-toolbar > span {
+  font-weight: 600;
+  color: #6f5f8c;
+}
+.bulk-toolbar > span small {
+  font-weight: 400;
+}
+.confirm-word {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0 4px;
+  font-size: 12px;
 }
 .kanban {
   display: flex;

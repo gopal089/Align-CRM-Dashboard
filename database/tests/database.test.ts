@@ -526,4 +526,45 @@ describe("PostgreSQL business rules and access controls (isolated test records)"
     await user(a);
     await rows("delete from public.leads where id=$1", [id]);
   });
+  it("applies a multi-row change only to the rows the member may touch", async () => {
+    // Bulk actions send one statement covering many ids. Row-level security
+    // must quietly narrow it to the caller's own rows rather than failing or
+    // changing everything, because the screen reports "updated X of Y".
+    await user(a);
+    const mine = (
+      await rows(
+        "insert into public.leads(org_id,owner_id,name) values($1,$2,'TEST ONLY rep owned') returning id",
+        [org, b],
+      )
+    )[0].id;
+    const theirs = (
+      await rows(
+        "insert into public.leads(org_id,owner_id,name) values($1,$2,'TEST ONLY admin owned') returning id",
+        [org, a],
+      )
+    )[0].id;
+    await user(b);
+    const updated = await rows(
+      "update public.leads set status='Contacted' where id = any($1) returning id",
+      [[mine, theirs]],
+    );
+    expect(updated.map((r: any) => r.id)).toEqual([mine]);
+    const archived = await rows(
+      "update public.leads set archived_at=now() where id = any($1) returning id",
+      [[mine, theirs]],
+    );
+    expect(archived).toHaveLength(1);
+    // A representative may delete nothing at all, not even their own rows.
+    expect(
+      await rows("delete from public.leads where id = any($1) returning id", [
+        [mine, theirs],
+      ]),
+    ).toHaveLength(0);
+    await user(a);
+    expect(
+      await rows("delete from public.leads where id = any($1) returning id", [
+        [mine, theirs],
+      ]),
+    ).toHaveLength(2);
+  });
 });
