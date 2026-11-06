@@ -26,6 +26,21 @@ export const contactTargets = [
   "tags",
   "notes",
 ];
+// Leads use the same import, with their own fields. Choice fields (source,
+// status, priority) are checked by the server against workspace settings.
+export const leadTargets = [
+  "name",
+  "company_name",
+  "email",
+  "phone",
+  "source",
+  "status",
+  "priority",
+  "notes",
+];
+export type ImportEntity = "contacts" | "leads";
+export const importTargets = (entity: ImportEntity) =>
+  entity === "leads" ? leadTargets : contactTargets;
 export function normalizedEmail(value: string) {
   return value.trim().toLowerCase();
 }
@@ -56,14 +71,19 @@ export function validateMatrix(rows: string[][]) {
         throw new Error("Each cell must contain at most 2,000 characters.");
   }
 }
-export function suggestedMapping(headers: string[], fields: CustomField[]) {
+export function suggestedMapping(
+  headers: string[],
+  fields: CustomField[],
+  targets: string[] = contactTargets,
+) {
   const used = new Set<string>();
   return headers.map((header) => {
     const label = header.trim().toLowerCase().replace(/[_-]/g, " ");
-    const base = contactTargets.find(
+    const base = targets.find(
       (t) =>
         t.replace(/_/g, " ") === label ||
-        (t === "name" && label === "full name"),
+        (t === "name" && label === "full name") ||
+        (t === "company_name" && label === "company"),
     );
     const custom = fields.find(
       (f) => !f.archived_at && f.name.toLowerCase() === label,
@@ -78,6 +98,7 @@ export function mappedRows(
   sheet: ImportSheet,
   mapping: string[],
   fields: CustomField[],
+  targets: string[] = contactTargets,
 ): ImportInput[] {
   validateMatrix(sheet.rows);
   const selected = mapping.filter(Boolean);
@@ -86,7 +107,7 @@ export function mappedRows(
     throw new Error("Map each target field only once.");
   for (const target of selected)
     if (
-      !contactTargets.includes(target) &&
+      !targets.includes(target) &&
       !fields.some((f) => !f.archived_at && `cf:${f.id}` === target)
     )
       throw new Error("A mapped field is no longer available.");

@@ -501,9 +501,9 @@ export default function RecordList({ entity }: { entity: Entity }) {
           <Download size={16} />
           {exporting ? "Exporting…" : "Export"}
         </button>
-        {entity.table === "contacts" && (
+        {(entity.table === "contacts" || entity.table === "leads") && (
           <button className="button" onClick={() => setImporting(true)}>
-            Import contacts
+            Import {entity.table}
           </button>
         )}
         <button
@@ -518,11 +518,16 @@ export default function RecordList({ entity }: { entity: Entity }) {
           New {entity.singular}
         </button>
       </PageTitle>
-      {importing && entity.table === "contacts" && (
-        <Suspense fallback={<Loading />}>
-          <ContactImport key={org!.id} onClose={() => setImporting(false)} />
-        </Suspense>
-      )}
+      {importing &&
+        (entity.table === "contacts" || entity.table === "leads") && (
+          <Suspense fallback={<Loading />}>
+            <ContactImport
+              key={org!.id + entity.table}
+              entity={entity.table as "contacts" | "leads"}
+              onClose={() => setImporting(false)}
+            />
+          </Suspense>
+        )}
       {customizable && customFields.data && (
         <SavedViews
           entity={entity}

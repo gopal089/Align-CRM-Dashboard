@@ -5,14 +5,14 @@ import { useAuth } from "../lib/auth";
 import { supabase } from "../lib/client";
 import { useCustomFields } from "../lib/customization";
 import {
-  contactTargets,
+  importTargets,
   importLimits,
   inputBatches,
   mappedRows,
   suggestedMapping,
   errorCsvData,
 } from "../lib/contactImport";
-import type { ImportBook } from "../lib/contactImport";
+import type { ImportBook, ImportEntity } from "../lib/contactImport";
 import { csv } from "../lib/utils";
 import { ErrorMessage, Modal } from "./ui";
 
@@ -38,9 +38,19 @@ type ImportRow = {
   result: string | null;
 };
 type Status = { job: Job; counts: Record<string, number>; rows: ImportRow[] };
-export default function ContactImport({ onClose }: { onClose: () => void }) {
+// One import screen for contacts and leads; the server runs the same engine
+// for both, with record-type specific checks.
+export default function ContactImport({
+  onClose,
+  entity = "contacts",
+}: {
+  onClose: () => void;
+  entity?: ImportEntity;
+}) {
   const { org } = useAuth();
-  const fields = useCustomFields("contacts");
+  const fields = useCustomFields(entity);
+  const targets = importTargets(entity);
+  const noun = entity === "leads" ? "lead" : "contact";
   const cache = useQueryClient();
   const [jobs, setJobs] = useState<Job[]>([]),
     [status, setStatus] = useState<Status | null>(null);
@@ -61,12 +71,15 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
     j: string | null = null,
     p: Record<string, unknown> = {},
   ) => {
-    const { data, error } = await supabase.rpc("contact_import", {
+    const { data, error } = await supabase.rpc(
+      entity === "leads" ? "lead_import" : "contact_import",
+      {
       o: org!.id,
       operation,
-      j,
-      p,
-    });
+        j,
+        p,
+      },
+    );
     if (error) throw error;
     return data;
   };
@@ -89,7 +102,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
       setError(e);
     } finally {
       setBusy(false);
-      void cache.invalidateQueries({ queryKey: ["records", "contacts"] });
+      void cache.invalidateQueries({ queryKey: ["records", entity] });
       void cache.invalidateQueries({ queryKey: ["summary"] });
     }
   }
@@ -156,7 +169,11 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
         const index = parsed.sheets.findIndex((s) => s.rows.length > 1);
         setSheet(index);
         setMapping(
-          suggestedMapping(parsed.sheets[index].rows[0], fields.data || []),
+          suggestedMapping(
+            parsed.sheets[index].rows[0],
+            fields.data || [],
+            targets,
+          ),
         );
       }
       setBook(parsed);
@@ -181,7 +198,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
       if (!book || fields.isPending || fields.error)
         throw new Error("Wait for custom fields to load before mapping.");
       const selected = book.sheets[sheet],
-        inputs = mappedRows(selected, mapping, fields.data || []),
+        inputs = mappedRows(selected, mapping, fields.data || [], targets),
         batches = inputBatches(inputs);
       let job = status?.job;
       if (!job) {
@@ -258,7 +275,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
         page += 25;
       }
       const data = errorCsvData(status.job.headers, entries);
-      csv(data.rows, data.columns, "contact-import-errors.csv", data.labels);
+      csv(data.rows, data.columns, `${noun}-import-errors.csv`, data.labels);
       toast.success(`Downloaded ${entries.length} failed rows`);
     });
   }
@@ -270,7 +287,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
         stopped.current = true;
         onClose();
       }}
-      title="Import contacts"
+      title={entity === "leads" ? "Import leads" : "Import contacts"}
       description="Preview your CSV or Excel file before saving. Imports can be paused and resumed for 24 hours."
       wide
     >
@@ -343,6 +360,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
                       suggestedMapping(
                         book!.sheets[i].rows[0],
                         fields.data || [],
+                        targets,
                       ),
                     );
                   }}
@@ -369,7 +387,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
                       }
                     >
                       <option value="">Do not import</option>
-                      {contactTargets.map((t) => (
+                      {targets.map((t) => (
                         <option key={t} value={t}>
                           {t.replace(/_/g, " ")}
                         </option>
@@ -387,7 +405,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
               </div>
               <label className="field">
                 <span>
-                  When email or phone matches an existing contact or earlier
+                  When email or phone matches an existing {noun} or earlier
                   file row
                 </span>
                 <select
@@ -400,9 +418,9 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
                 </select>
               </label>
               <p className="muted">
-                New contacts belong to you. Updates retain ownership, company
-                links and empty/unmapped fields. Phone country codes are not
-                guessed. Conflicting matches become errors.
+                {entity === "leads"
+                  ? "New leads belong to you; without a Source column they get Manual (or your first source). Status accepts New, Contacted, Qualified or Lost; converting stays a separate step. Updates keep ownership and empty/unmapped fields. Conflicting matches become errors."
+                  : "New contacts belong to you. Updates retain ownership, company links and empty/unmapped fields. Phone country codes are not guessed. Conflicting matches become errors."}
               </p>
               <button
                 className="button primary"
@@ -526,7 +544,7 @@ export default function ContactImport({ onClose }: { onClose: () => void }) {
           <p className="muted">
             Temporary data expires{" "}
             {new Date(status.job.expires_at).toLocaleString()}. Discarding
-            removes temporary rows; contacts already saved remain.
+            removes temporary rows; {entity} already saved remain.
           </p>
         </section>
       )}
