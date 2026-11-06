@@ -2405,7 +2405,9 @@ tr.selected-row {
 .settings-main .panel > .text-link {
   margin-left: 22px;
 }
-.settings-main .panel > .fine-print {
+.settings-main .panel > .fine-print,
+.settings-main .panel > .customization-toolbar,
+.settings-main .panel > .custom-field-list {
   padding: 0 22px;
 }
 .settings-main .panel .form-actions {
@@ -3466,7 +3468,9 @@ tr.selected-row {
   .stage-order .icon-button {
     width: 22px;
   }
-  .settings-main .panel > form {
+  .settings-main .panel > form,
+  .settings-main .panel > .customization-toolbar,
+  .settings-main .panel > .custom-field-list {
     padding: 0 16px;
   }
   .integration-row {
@@ -4170,6 +4174,18 @@ tr.selected-row {
 }
 .custom-field-row .customization-toolbar {
   margin-bottom: 0;
+}
+.custom-field-row:last-child {
+  border-bottom: 0;
+}
+.button.danger-outline {
+  color: #b84a54;
+  border-color: #e8c4c8;
+}
+.button.danger-outline:hover {
+  color: white;
+  background: #b84a54;
+  border-color: #b84a54;
 }
 .custom-columns {
   display: grid;

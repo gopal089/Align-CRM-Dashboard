@@ -59,6 +59,12 @@ export default function CustomFieldsSettings() {
   const fields = useCustomFields(entity);
   const [editing, setEditing] = useState<CustomField | "new" | null>(null);
   const [archiving, setArchiving] = useState<CustomField | null>(null);
+  // The field being deleted plus how much data it holds (from a dry run).
+  const [deleting, setDeleting] = useState<{
+    field: CustomField;
+    records: number;
+    views: number;
+  } | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const admin = role === "Administrator";
@@ -87,15 +93,13 @@ export default function CustomFieldsSettings() {
               .update({ name, options })
               .eq("id", editing.id)
               .eq("org_id", org!.id)
-          : supabase
-              .from("custom_field_definitions")
-              .insert({
-                org_id: org!.id,
-                entity,
-                name,
-                field_type: type,
-                options,
-              });
+          : supabase.from("custom_field_definitions").insert({
+              org_id: org!.id,
+              entity,
+              name,
+              field_type: type,
+              options,
+            });
       const { error } = await query.select("id").single();
       if (error) throw error;
       await cache.invalidateQueries();
@@ -121,10 +125,20 @@ export default function CustomFieldsSettings() {
       archived ? "Field archived; values retained" : "Field restored",
     );
   }
+  async function askDelete(field: CustomField) {
+    // Count affected records and views first so the warning is specific.
+    const { data, error } = await supabase.rpc("delete_custom_field", {
+      field: field.id,
+      dry_run: true,
+    });
+    if (error) return toast.error(error.message);
+    setDeleting({ field, records: data.records, views: data.views });
+  }
+  const recordWord = entity === "leads" ? "lead" : "contact";
   return (
     <Section
       title="Custom fields"
-      description="Workspace fields for Leads and Contacts. Archiving retains every stored value."
+      description="Workspace fields for Leads and Contacts. Archive hides a field and keeps its values; Delete removes it and its values for good."
     >
       <div className="customization-toolbar">
         <label>
@@ -149,7 +163,8 @@ export default function CustomFieldsSettings() {
       </div>
       {!admin && (
         <p className="fine-print">
-          Only administrators can create, rename, archive or restore fields.
+          Only administrators can create, rename, archive, restore or delete
+          fields.
         </p>
       )}
       {fields.isPending ? (
@@ -193,6 +208,12 @@ export default function CustomFieldsSettings() {
                   >
                     {field.archived_at ? "Restore" : "Archive"}
                   </button>
+                  <button
+                    className="button small danger-outline"
+                    onClick={() => askDelete(field)}
+                  >
+                    Delete
+                  </button>
                 </div>
               )}
             </div>
@@ -222,6 +243,37 @@ export default function CustomFieldsSettings() {
         onConfirm={async () => {
           await archive(archiving!, true);
           setArchiving(null);
+        }}
+      />
+      <Confirm
+        open={!!deleting}
+        onClose={() => setDeleting(null)}
+        destructive
+        title={`Delete "${deleting?.field.name}" permanently?`}
+        description={
+          deleting
+            ? `This removes the field and its value from ${deleting.records} ${recordWord}${deleting.records === 1 ? "" : "s"}` +
+              (deleting.views
+                ? `, and takes it out of ${deleting.views} saved view${deleting.views === 1 ? "" : "s"}`
+                : "") +
+              ". This cannot be undone. To hide the field but keep its values, use Archive instead."
+            : ""
+        }
+        confirmWord={deleting?.field.name}
+        confirmHint={`Type ${deleting?.field.name} to confirm`}
+        onConfirm={async () => {
+          const { data, error } = await supabase.rpc("delete_custom_field", {
+            field: deleting!.field.id,
+          });
+          if (error) throw error;
+          await cache.invalidateQueries();
+          setDeleting(null);
+          toast.success(
+            `"${data.name}" deleted` +
+              (data.records
+                ? ` and removed from ${data.records} ${recordWord}${data.records === 1 ? "" : "s"}`
+                : ""),
+          );
         }}
       />
     </Section>
