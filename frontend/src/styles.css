@@ -2030,6 +2030,109 @@ tr.selected-row {
   font-size: 9px;
   margin-left: auto;
 }
+/* Emailed proposals: history under the pitch buttons */
+.pitch-actions .proposal-sends {
+  flex-basis: 100%;
+  border: 1px solid #ece6f6;
+  border-radius: 6px;
+  background: #fbfaff;
+  padding: 12px 16px;
+}
+.proposal-sends h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #6f5f8c;
+}
+.proposal-sends ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.proposal-sends li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #f0ebf7;
+}
+.proposal-sends li:first-child {
+  border-top: 0;
+}
+.proposal-sends li > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.proposal-sends small {
+  font-size: 11px;
+  color: #8d7ea7;
+}
+.proposal-sends small.text-danger {
+  color: #b84a54;
+}
+.proposal-send-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+/* The page a client opens from the email */
+.public-proposal {
+  min-height: 100vh;
+  background: #f6f5fb;
+  padding: 32px 16px;
+}
+.public-proposal-notice {
+  max-width: 520px;
+  margin: 10vh auto 0;
+  background: #fff;
+  border: 1px solid #e6dfed;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+}
+.public-proposal-notice h1 {
+  font-size: 20px;
+  margin: 16px 0 8px;
+}
+.public-proposal-banner {
+  max-width: 850px;
+  margin: 0 auto 16px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: #fff7e6;
+  border: 1px solid #f1dfb5;
+  color: #7a5b16;
+  font-size: 13px;
+}
+.public-proposal .proposal footer a {
+  color: inherit;
+  text-decoration: underline;
+}
+@media (max-width: 640px) {
+  .public-proposal .proposal {
+    padding: 28px 20px;
+  }
+  .proposal-sends li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .proposal-send-state {
+    justify-content: flex-start;
+  }
+}
+@media print {
+  .public-proposal-banner {
+    display: none;
+  }
+  .public-proposal {
+    padding: 0;
+    background: white;
+  }
+}
 .history-list {
   padding: 0 23px 25px;
 }

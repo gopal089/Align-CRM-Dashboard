@@ -29,7 +29,7 @@ import { entities, titleCase } from "../lib/model";
 import { useAuth } from "../lib/auth";
 import { useRecord } from "../lib/data";
 import { supabase } from "../lib/client";
-import { money, date } from "../lib/utils";
+import { date } from "../lib/utils";
 import {
   Badge,
   Confirm,
@@ -39,11 +39,13 @@ import {
   Menu,
   PageTitle,
   Section,
-  Logo,
 } from "./ui";
 import { Cell, RecordTable } from "./RecordList";
 import RecordForm from "./RecordForm";
 import { useCustomFields, supportsCustomization } from "../lib/customization";
+import ProposalDocument from "./ProposalDocument";
+import ProposalSend from "./ProposalSend";
+
 function Related({
   table,
   foreignKey,
@@ -299,17 +301,6 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
   const details = entity.fields.filter(
     (f) => f.type !== "textarea" && f.key !== "name",
   );
-  const substitutions: Record<string, string> = {
-    customer: customer.data?.name || "[Customer name]",
-    solution: record.solution || "",
-    pricing: record.pricing || money(record.amount || 0, org!.currency),
-    terms: record.terms || "",
-  };
-  const renderText = (text: string) =>
-    String(text || "").replace(
-      /\{\{(customer|solution|pricing|terms)\}\}/g,
-      (_, k) => substitutions[k],
-    );
   return (
     <>
       <Link className="back-link" to={location.state?.back || `/${entity.key}`}>
@@ -466,59 +457,46 @@ export default function RecordDetail({ entity }: { entity: Entity }) {
               <ArrowUpRight size={15} />
             </button>
           )}
-          <span className="muted">
-            Email delivery and view tracking are not configured.
-          </span>
+          <ProposalSend pitch={record} canEdit={canEdit} />
         </div>
       )}
       {isPitch && preview ? (
-        <article className="proposal print-content">
-          <div className="proposal-header">
-            <Logo />
-            <div>
-              <strong>{org!.name}</strong>
-              <p>{org!.website}</p>
-            </div>
-          </div>
-          <span className="eyebrow">A PROPOSAL FOR WHAT’S NEXT</span>
-          <h1>{record.name}</h1>
-          <p className="proposal-date">
-            Prepared {date(record.created_at, org!.timezone)} ·{" "}
-            {members.find((m) => m.user_id === record.owner_id)?.profiles.name}
-          </p>
-          {["objective", "problem", "solution", "scope", "pricing"]
-            .filter((k) => record[k])
-            .map((k) => (
-              <section key={k}>
-                <h2>{titleCase(k)}</h2>
-                <p>{record[k]}</p>
-              </section>
-            ))}
-          {sections.error ? (
+        <ProposalDocument
+          content={{
+            org: {
+              name: org!.name,
+              website: org!.website,
+              currency: org!.currency,
+              timezone: org!.timezone,
+            },
+            pitch: {
+              name: record.name,
+              objective: record.objective || "",
+              problem: record.problem || "",
+              solution: record.solution || "",
+              scope: record.scope || "",
+              pricing: record.pricing || "",
+              amount: Number(record.amount) || 0,
+              terms: record.terms || "",
+              created_at: record.created_at,
+            },
+            sections: sections.error
+              ? []
+              : (sections.data || []).map((x: any) => ({
+                  title: x.title,
+                  content: x.content,
+                })),
+            customer: customer.data?.name || "",
+            sender:
+              members.find((m) => m.user_id === record.owner_id)?.profiles
+                .name || "",
+          }}
+          footer={`Prepared by ${org!.name} · ${org!.currency} · Proposal status: ${record.status}`}
+        >
+          {sections.error && (
             <ErrorMessage error={(sections.error as Error).message} />
-          ) : (
-            sections.data?.map((s: any) => (
-              <section key={s.id}>
-                <h2>{renderText(s.title)}</h2>
-                <p>{renderText(s.content)}</p>
-              </section>
-            ))
           )}
-          <div className="proposal-total">
-            <span>Proposed investment</span>
-            <strong>{money(record.amount, org!.currency)}</strong>
-          </div>
-          {record.terms && (
-            <section>
-              <h2>Terms & next steps</h2>
-              <p>{record.terms}</p>
-            </section>
-          )}
-          <footer>
-            Prepared by {org!.name} · {org!.currency} · Proposal status:{" "}
-            {record.status}
-          </footer>
-        </article>
+        </ProposalDocument>
       ) : (
         <>
           <div className="page-subnav">

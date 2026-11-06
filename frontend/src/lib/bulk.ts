@@ -58,8 +58,13 @@ export function bulkValues(
   return (
     options
       // Converting a lead creates a company, contact and deal, so it stays a
-      // single-record action with its own confirmation.
-      .filter((option) => !(entity.key === "leads" && option === "Converted"))
+      // single-record action with its own confirmation. "Viewed" is set only
+      // by proposal tracking when a client opens the link.
+      .filter(
+        (option) =>
+          !(entity.key === "leads" && option === "Converted") &&
+          !(entity.key === "pitch-desk" && option === "Viewed"),
+      )
       .map((option) => ({ value: option, label: option }))
   );
 }

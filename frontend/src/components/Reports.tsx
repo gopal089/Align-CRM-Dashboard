@@ -431,6 +431,7 @@ export default function Reports() {
                     rows={[
                       "Draft",
                       "Sent",
+                      "Viewed",
                       "Accepted",
                       "Rejected",
                       "Expired",
@@ -439,6 +440,7 @@ export default function Reports() {
                       count: [
                         s.pitchDraft,
                         s.pitchSent,
+                        s.pitchViewed ?? 0,
                         s.pitchAccepted,
                         s.pitchRejected,
                         s.pitchExpired,
@@ -476,10 +478,9 @@ export default function Reports() {
                 </Section>
                 <p className="report-definition">
                   Related deal value: {fmt(s.pitchDealValue)}. Sent counts
-                  pitches currently in the manually recorded Sent status.
-                  Acceptance rate is current accepted pitches ÷ pitches created
-                  in the period. Viewed metrics are unavailable because customer
-                  view tracking is not configured.
+                  pitches currently in the Sent status; once a client opens an
+                  emailed proposal it moves to Viewed. Acceptance rate is
+                  current accepted pitches ÷ pitches created in the period.
                 </p>
               </>
             ) : (

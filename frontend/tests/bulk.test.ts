@@ -117,6 +117,16 @@ describe("bulkValues", () => {
     expect(values).toContain("Qualified");
     expect(values).not.toContain("Converted");
   });
+  it("never offers Viewed, which only proposal tracking may set", () => {
+    const status = bulkFields(entities["pitch-desk"], runtime).find(
+      (f) => f.key === "status",
+    )!;
+    const values = bulkValues(entities["pitch-desk"], status, runtime, members).map(
+      (v) => v.value,
+    );
+    expect(values).toContain("Sent");
+    expect(values).not.toContain("Viewed");
+  });
 });
 
 describe("planBulk", () => {

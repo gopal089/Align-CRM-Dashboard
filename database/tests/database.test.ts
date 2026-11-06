@@ -61,7 +61,7 @@ describe("PostgreSQL business rules and access controls (isolated test records)"
     const tables = await rows(
       "select relname,relrowsecurity from pg_class join pg_namespace n on n.oid=relnamespace where n.nspname='public' and relkind='r'",
     );
-    expect(tables.length).toBe(23);
+    expect(tables.length).toBe(25);
     expect(tables.every((t) => t.relrowsecurity)).toBe(true);
     await user(a);
   });
@@ -275,7 +275,7 @@ describe("PostgreSQL business rules and access controls (isolated test records)"
   it("blocks fake view tracking and creates accepted deal only once", async () => {
     await expect(
       rows("update public.pitches set status='Viewed' where id=$1", [pitch]),
-    ).rejects.toThrow("not configured");
+    ).rejects.toThrow("set automatically");
     await rows("update public.pitches set status='Accepted' where id=$1", [
       pitch,
     ]);

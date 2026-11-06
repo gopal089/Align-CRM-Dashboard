@@ -5,3 +5,8 @@ verify_jwt = false
 [functions.account-security]
 # Public password login; all other actions verify the user and native session.
 verify_jwt = false
+
+[functions.proposal-email]
+# Clients open proposals without signing in, so the handler checks the link
+# itself; sending and withdrawing verify the member and their session.
+verify_jwt = false

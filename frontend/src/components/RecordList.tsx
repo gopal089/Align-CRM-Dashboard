@@ -544,7 +544,8 @@ export default function RecordList({ entity }: { entity: Entity }) {
             ["All pitches", "pitches", ""],
             ["Draft", "pitchDraft", "Draft"],
             ["Ready to Send", "pitchReady", "Ready to Send"],
-            ["Sent · manual", "pitchSent", "Sent"],
+            ["Sent", "pitchSent", "Sent"],
+            ["Viewed", "pitchViewed", "Viewed"],
             ["Accepted", "pitchAccepted", "Accepted"],
             ["Rejected", "pitchRejected", "Rejected"],
           ].map(([label, key, status]) => (

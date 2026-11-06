@@ -188,6 +188,7 @@ export function Badge({ value }: { value: any }) {
     "Accepted",
     "Completed",
     "Administrator",
+    "Opened",
   ].includes(text)
     ? "good"
     : [
@@ -197,6 +198,8 @@ export function Badge({ value }: { value: any }) {
           "Closed lost",
           "Overdue",
           "Expired",
+          "Failed",
+          "Withdrawn",
         ].includes(text)
       ? "bad"
       : [
@@ -204,6 +207,7 @@ export function Badge({ value }: { value: any }) {
             "Proposal",
             "Ready to Send",
             "Sent",
+            "Viewed",
             "In progress",
             "Sales Manager",
           ].includes(text)
