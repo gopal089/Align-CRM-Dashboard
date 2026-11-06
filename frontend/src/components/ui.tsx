@@ -99,7 +99,6 @@ export function Confirm({
       title={title}
       description={description}
     >
-      <p className="muted">{description}</p>
       {children}
       {confirmWord && (
         <label className="confirm-word">
