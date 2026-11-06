@@ -10,3 +10,8 @@ verify_jwt = false
 # Clients open proposals without signing in, so the handler checks the link
 # itself; sending and withdrawing verify the member and their session.
 verify_jwt = false
+
+[functions.align-notifications]
+# Called only by the scheduler; the handler checks the private credential
+# stored in Vault instead of a user sign-in.
+verify_jwt = false

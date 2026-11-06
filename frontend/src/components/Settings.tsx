@@ -124,6 +124,7 @@ export default function Settings() {
             ["custom-fields", "Custom fields"],
             ["pipeline", "Sales pipeline"],
             ["sources", "Lead sources"],
+            ["follow-ups", "Follow-ups"],
             ["integrations", "Integrations & payments"],
             ["data", "Data & export"],
             ["billing", "Plans & billing"],
@@ -301,7 +302,7 @@ export default function Settings() {
                       name="notifications"
                       defaultChecked={profile?.notifications !== false}
                     />
-                    Show in-app task reminders
+                    Task reminders in the app and a morning email summary
                   </label>
                 </div>
                 <div className="form-actions">
@@ -454,6 +455,87 @@ export default function Settings() {
                     <button className="button primary">Save pipeline</button>
                   </div>
                 </fieldset>
+              </form>
+            </Section>
+          ) : tab === "follow-ups" ? (
+            <Section
+              title="Automatic follow-ups"
+              description="Every morning at 8 am workspace time, Align adds follow-up tasks for your team and emails each person one short summary. Clients are never emailed automatically."
+            >
+              <form
+                key={`${org!.id}-${org!.follow_up_enabled}-${org!.follow_up_lead_days}-${org!.follow_up_proposal_days}`}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  saveOrg({
+                    follow_up_enabled: f.get("follow_up_enabled") === "on",
+                    follow_up_lead_days: Number(f.get("follow_up_lead_days")),
+                    follow_up_proposal_days: Number(
+                      f.get("follow_up_proposal_days"),
+                    ),
+                  });
+                }}
+              >
+                <fieldset disabled={!admin || busy}>
+                  <div className="form-grid">
+                    <label className="checkbox-label span-2">
+                      <input
+                        type="checkbox"
+                        name="follow_up_enabled"
+                        defaultChecked={org!.follow_up_enabled !== false}
+                      />
+                      Create follow-up tasks automatically
+                    </label>
+                    <label>
+                      Lead with nothing logged for
+                      <input
+                        name="follow_up_lead_days"
+                        type="number"
+                        min={1}
+                        max={60}
+                        required
+                        defaultValue={org!.follow_up_lead_days ?? 3}
+                      />
+                      <small>
+                        Days. Open leads (New, Contacted, Qualified) with no
+                        call, email, meeting, note or edit get a task for their
+                        owner.
+                      </small>
+                    </label>
+                    <label>
+                      Proposal opened, no reply for
+                      <input
+                        name="follow_up_proposal_days"
+                        type="number"
+                        min={1}
+                        max={60}
+                        required
+                        defaultValue={org!.follow_up_proposal_days ?? 3}
+                      />
+                      <small>
+                        Days. A proposal the client opened that is still
+                        &ldquo;Viewed&rdquo; gets a high-priority task.
+                      </small>
+                    </label>
+                  </div>
+                  <p className="fine-print">
+                    Each record gets at most one open follow-up. Completing it
+                    counts as contact, so the next one comes only after the same
+                    number of quiet days. People who turn off task reminders in
+                    their profile still get the tasks, without the email.
+                  </p>
+                  <div className="form-actions">
+                    <button className="button primary">
+                      <Check size={15} />
+                      Save follow-ups
+                    </button>
+                  </div>
+                </fieldset>
+                {!admin && (
+                  <p className="fine-print">
+                    Only administrators can change follow-up rules.
+                  </p>
+                )}
               </form>
             </Section>
           ) : tab === "sources" ? (

@@ -19,6 +19,9 @@ export type Org = {
   lead_sources: string[];
   pipeline_stages: Stage[];
   payment_tracking: boolean;
+  follow_up_enabled: boolean;
+  follow_up_lead_days: number;
+  follow_up_proposal_days: number;
 };
 export type Member = {
   id: string;
