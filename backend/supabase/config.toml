@@ -15,3 +15,13 @@ verify_jwt = false
 # Called only by the scheduler; the handler checks the private credential
 # stored in Vault instead of a user sign-in.
 verify_jwt = false
+
+[functions.calendar-feed]
+# Calendar apps fetch the subscribe link without signing in; the secret token
+# in the link is checked by the handler.
+verify_jwt = false
+
+[functions.calendar-google]
+# Google redirects members back here without an Align token; the one-time
+# state is checked instead. App actions verify the member themselves.
+verify_jwt = false

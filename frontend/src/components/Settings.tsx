@@ -20,6 +20,7 @@ import { PageTitle, Section, ErrorMessage } from "./ui";
 import Security from "./Security";
 import Billing from "./Billing";
 import CustomFieldsSettings from "./CustomFields";
+import CalendarSettings from "./CalendarSettings";
 import { assertExportAllowed } from "../lib/billing";
 export default function Settings() {
   const { org, profile, role, memberships, setOrgId, refresh } = useAuth();
@@ -125,6 +126,7 @@ export default function Settings() {
             ["pipeline", "Sales pipeline"],
             ["sources", "Lead sources"],
             ["follow-ups", "Follow-ups"],
+            ["calendar", "Calendar"],
             ["integrations", "Integrations & payments"],
             ["data", "Data & export"],
             ["billing", "Plans & billing"],
@@ -457,6 +459,8 @@ export default function Settings() {
                 </fieldset>
               </form>
             </Section>
+          ) : tab === "calendar" ? (
+            <CalendarSettings />
           ) : tab === "follow-ups" ? (
             <Section
               title="Automatic follow-ups"

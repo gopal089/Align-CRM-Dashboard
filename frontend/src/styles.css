@@ -4205,3 +4205,41 @@ tr.selected-row {
 .import-results { margin-top:24px; }
 .import-results .table-wrap { max-height:360px; overflow:auto; }
 @media(max-width:640px) { .import-mapping { grid-template-columns:1fr; } }
+/* Settings → Calendar */
+.calendar-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  border: 1px solid #ece6f6;
+  border-radius: 6px;
+  padding: 14px 16px;
+  background: #fbfaff;
+}
+.calendar-card > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 200px;
+}
+.calendar-card small {
+  font-size: 11px;
+  color: #8d7ea7;
+}
+.calendar-actions {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.calendar-link {
+  display: flex;
+  gap: 9px;
+}
+.calendar-link input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11px;
+}
