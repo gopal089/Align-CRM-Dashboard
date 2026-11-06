@@ -131,6 +131,39 @@ beforeEach(async () => {
   await user();
 });
 describe("transactional, private contact import", () => {
+  it("counts only unfinished imports toward the three-slot limit and trims old finished ones", async () => {
+    const create = () =>
+      rpc("create", null, {
+        file_name: "slot.csv",
+        headers: ["Name", "Email"],
+        rows: 1,
+        policy: "skip",
+        file_meta: { sha256: "b".repeat(64), mapping: ["name", "email"], sheet: "CSV" },
+      });
+    // Private tables are invisible to signed-in users, so counts are read as
+    // the database owner and the test then signs back in.
+    const finishedCount = async () => {
+      await db.exec("reset role");
+      const n = (
+        await rows(
+          "select count(*)::int n from private.contact_import_jobs where org_id=$1 and state in ('complete','cancelled')",
+          [org],
+        )
+      )[0].n;
+      await user();
+      return n;
+    };
+    // Four finished imports must not block a fifth.
+    for (let i = 0; i < 4; i++) await finish(await stage([input()]));
+    expect(await finishedCount()).toBe(4);
+    await create();
+    // Starting a new import keeps only the newest three finished ones.
+    expect(await finishedCount()).toBe(3);
+    // Three imports still in progress do block a fourth.
+    await create();
+    await create();
+    await expect(create()).rejects.toThrow("three imports in progress");
+  });
   it("normalizes email/phone and skips duplicates against existing records and inside a file", async () => {
     const email = crypto.randomUUID() + "@example.invalid";
     await rows(
